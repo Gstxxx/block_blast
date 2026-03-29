@@ -1,8 +1,61 @@
 import './style.css';
 
 const ROWS = 8,
-  COLS = 8,
+  COLS = 8;
+let padPx = 8,
+  cellPx = 38,
+  gapPx = 3,
   CELL = 41;
+
+function readCssCellSize() {
+  const v = getComputedStyle(document.getElementById('gw')).getPropertyValue('--cell-size').trim();
+  const n = parseFloat(v);
+  return Number.isFinite(n) ? n : 32;
+}
+
+function applyResponsiveCellSize() {
+  const wrap = document.getElementById('board-wrap');
+  const gw = document.getElementById('gw');
+  const pad = 8,
+    gap = 3;
+  let w = wrap.clientWidth;
+  if (w < 48) w = Math.max(document.documentElement.clientWidth - 24, 200);
+  const cell = Math.floor((w - 2 * pad - 7 * gap) / 8);
+  const cellClamped = Math.max(26, Math.min(40, cell));
+  gw.style.setProperty('--cell-size', cellClamped + 'px');
+}
+
+function syncLayoutMetrics() {
+  const boardEl = document.getElementById('board');
+  const first = boardEl.querySelector('.cell[data-r="0"][data-c="0"]');
+  const second = boardEl.querySelector('.cell[data-r="0"][data-c="1"]');
+  const br = boardEl.getBoundingClientRect();
+  if (first && second) {
+    const fr = first.getBoundingClientRect();
+    const sr = second.getBoundingClientRect();
+    cellPx = fr.width;
+    padPx = fr.left - br.left;
+    CELL = sr.left - fr.left;
+    gapPx = CELL - cellPx;
+  } else {
+    cellPx = readCssCellSize();
+    gapPx = 3;
+    padPx = 8;
+    CELL = cellPx + gapPx;
+  }
+}
+
+function resizeCanvases() {
+  const board = document.getElementById('board');
+  const w = Math.max(1, Math.round(board.offsetWidth));
+  const h = Math.max(1, Math.round(board.offsetHeight));
+  if (pcanvas.width !== w || pcanvas.height !== h) {
+    pcanvas.width = w;
+    pcanvas.height = h;
+    fcanvas.width = w;
+    fcanvas.height = h;
+  }
+}
 const SHAPES = [
   { c: [[0, 0], [1, 0], [2, 0]], col: '#e94560', sz: 1 },
   { c: [[0, 0], [0, 1], [0, 2]], col: '#e94560', sz: 1 },
@@ -97,9 +150,11 @@ function sndLevel() {
 }
 
 function spawnParticles(cells) {
+  syncLayoutMetrics();
+  const cx = cellPx / 2;
   cells.forEach(([r, c]) => {
-    const x = 8 + c * CELL + 19,
-      y = 8 + r * CELL + 19;
+    const x = padPx + c * CELL + cx,
+      y = padPx + r * CELL + cx;
     for (let i = 0; i < 9; i++) {
       const a = Math.random() * Math.PI * 2,
         s = 1.5 + Math.random() * 3;
@@ -138,6 +193,8 @@ function animP() {
 }
 
 function flashLines(cells, cb) {
+  syncLayoutMetrics();
+  const rad = Math.max(3, cellPx * 0.16);
   let alpha = 1;
   function frame() {
     fctx.clearRect(0, 0, fcanvas.width, fcanvas.height);
@@ -145,7 +202,7 @@ function flashLines(cells, cb) {
     cells.forEach(([r, c]) => {
       fctx.fillStyle = '#fff';
       fctx.beginPath();
-      fctx.roundRect(8 + c * CELL, 8 + r * CELL, 38, 38, 6);
+      fctx.roundRect(padPx + c * CELL, padPx + r * CELL, cellPx, cellPx, rad);
       fctx.fill();
     });
     alpha -= 0.12;
@@ -193,7 +250,8 @@ function getPieceBox(p) {
   return { maxC: Math.max(...p.c.map(([x]) => x)), maxR: Math.max(...p.c.map(([, y]) => y)) };
 }
 
-function renderBoard(ghostCells = []) {
+function renderBoard(ghostCells = [], opts = {}) {
+  if (!opts.fromMoveGhost) applyResponsiveCellSize();
   const el = document.getElementById('board');
   el.innerHTML = '';
   for (let r = 0; r < ROWS; r++)
@@ -217,6 +275,8 @@ function renderBoard(ghostCells = []) {
       d.dataset.c = c;
       el.appendChild(d);
     }
+  syncLayoutMetrics();
+  resizeCanvases();
 }
 
 function renderHold() {
@@ -278,12 +338,14 @@ function renderNext() {
 function renderPieces() {
   const row = document.getElementById('pieces-row');
   row.innerHTML = '';
+  const slotW = Math.min(96, Math.max(72, Math.floor(window.innerWidth * 0.26)));
   pieces.forEach((p, i) => {
     const slot = document.createElement('div');
     slot.className = 'pslot' + (p === null ? ' used' : '');
     if (p) {
       const { maxC, maxR } = getPieceBox(p);
-      const cs = maxC <= 2 && maxR <= 2 ? 20 : maxC <= 3 && maxR <= 3 ? 15 : 11;
+      const dim = Math.max(maxC, maxR) + 1;
+      const cs = Math.max(8, Math.min(maxC <= 2 && maxR <= 2 ? 20 : maxC <= 3 && maxR <= 3 ? 15 : 11, Math.floor((slotW - 12) / dim)));
       const mini = document.createElement('div');
       mini.className = 'pmini';
       mini.style.cssText = `grid-template-columns:repeat(${maxC + 1},${cs}px);grid-template-rows:repeat(${maxR + 1},${cs}px);gap:3px;`;
@@ -333,49 +395,36 @@ function swapHold() {
   renderPieces();
 }
 
-const ghost = document.getElementById('ghost');
-const gg = document.getElementById('gg');
-
-function buildGhost(p) {
-  if (!p) return;
-  const { maxC, maxR } = getPieceBox(p);
-  gg.style.cssText = `display:grid;grid-template-columns:repeat(${maxC + 1},38px);grid-template-rows:repeat(${maxR + 1},38px);gap:3px;`;
-  gg.innerHTML = '';
-  for (let r2 = 0; r2 <= maxR; r2++)
-    for (let c2 = 0; c2 <= maxC; c2++) {
-      const gc = document.createElement('div');
-      gc.className = 'gc';
-      const filled = p.c.some(([cc, rr]) => cc === c2 && rr === r2);
-      gc.style.background = filled ? p.col : 'transparent';
-      if (p.bomb && filled) {
-        gc.textContent = '💣';
-        gc.style.cssText =
-          'width:38px;height:38px;border-radius:6px;background:#ff6b35;opacity:0.72;display:flex;align-items:center;justify-content:center;font-size:18px;';
-      }
-      gg.appendChild(gc);
-    }
-}
-
 function startDrag(e, idx) {
   if (pieces[idx] === null) return;
   e.preventDefault();
   dragging = { idx, piece: pieces[idx] };
   snapR = null;
   snapC = null;
-  buildGhost(dragging.piece);
-  ghost.style.display = 'block';
   document.querySelectorAll('.pslot')[idx]?.classList.add('drag-src');
-  moveGhost(e);
+  updateDragPreview(e);
 }
 
 function getBoardRaw(cx, cy) {
+  syncLayoutMetrics();
   const boardEl = document.getElementById('board');
   const rect = boardEl.getBoundingClientRect();
-  return { c: (cx - rect.left - 8) / CELL, r: (cy - rect.top - 8) / CELL };
+  return { c: (cx - rect.left - padPx) / CELL, r: (cy - rect.top - padPx) / CELL };
 }
+/** Cell under pointer: floor so the anchor matches the cell region you point at (not nearest-center round). */
 function getBoardSnap(cx, cy) {
   const { r, c } = getBoardRaw(cx, cy);
-  return { r: Math.round(r), c: Math.round(c) };
+  return { r: Math.floor(r), c: Math.floor(c) };
+}
+
+function getClientPoint(e) {
+  const t =
+    e.touches && e.touches[0]
+      ? e.touches[0]
+      : e.changedTouches && e.changedTouches[0]
+        ? e.changedTouches[0]
+        : e;
+  return { x: t.clientX, y: t.clientY };
 }
 
 function canPlace(p, r, c) {
@@ -390,26 +439,12 @@ function getGhostCells(p, r, c) {
   return p.c.map(([dc, dr]) => [r + dr, c + dc]);
 }
 
-function moveGhost(e) {
-  const t = e.touches ? e.touches[0] : e;
-  const { r, c } = getBoardSnap(t.clientX, t.clientY);
+function updateDragPreview(e) {
+  const finger = getClientPoint(e);
+  const { r, c } = getBoardSnap(finger.x, finger.y);
   snapR = r;
   snapC = c;
-  const valid = canPlace(dragging.piece, r, c);
-  const inBoard = r >= 0 && r < ROWS && c >= 0 && c < COLS;
-  if (inBoard && valid) {
-    const boardEl = document.getElementById('board');
-    const rect = boardEl.getBoundingClientRect();
-    const { maxC, maxR } = getPieceBox(dragging.piece);
-    const snapX = rect.left + 8 + c * CELL - (maxC * CELL) / 2;
-    const snapY = rect.top + 8 + r * CELL - (maxR * CELL) / 2;
-    ghost.style.left = snapX + 'px';
-    ghost.style.top = snapY + 'px';
-  } else {
-    ghost.style.left = t.clientX - 38 + 'px';
-    ghost.style.top = t.clientY - 38 + 'px';
-  }
-  renderBoard(getGhostCells(dragging.piece, r, c));
+  renderBoard(getGhostCells(dragging.piece, r, c), { fromMoveGhost: true });
 }
 
 function getCellEl(r, c) {
@@ -514,8 +549,8 @@ function clearLines(pr, pc) {
       showComboBadge(combo);
       sndCombo(combo);
     }
-    const bw = document.getElementById('board-wrap').getBoundingClientRect();
-    showScorePop(pts, 8 + pc * CELL + 19, 8 + pr * CELL - 10);
+    syncLayoutMetrics();
+    showScorePop(pts, padPx + pc * CELL + cellPx / 2, padPx + pr * CELL - Math.max(8, cellPx * 0.25));
     document.getElementById('cd').textContent = 'x' + combo;
     document.getElementById('cd').style.color = combo >= 5 ? '#f59e0b' : combo >= 3 ? '#a78bfa' : '#fbbf24';
     return true;
@@ -600,10 +635,9 @@ function showGameOver() {
 
 function endDrag(e) {
   if (!dragging) return;
-  ghost.style.display = 'none';
   document.querySelectorAll('.pslot').forEach((s) => s.classList.remove('drag-src'));
-  const t = e.changedTouches ? e.changedTouches[0] : e;
-  const { r, c } = getBoardSnap(t.clientX, t.clientY);
+  const finger = getClientPoint(e);
+  const { r, c } = getBoardSnap(finger.x, finger.y);
   const canDrop = dragging.piece.bomb ? r >= 0 && r < ROWS && c >= 0 && c < COLS : canPlace(dragging.piece, r, c);
   if (canDrop) {
     undoStack.push({
@@ -698,14 +732,14 @@ function restart() {
 }
 
 document.addEventListener('mousemove', (e) => {
-  if (dragging) moveGhost(e);
+  if (dragging) updateDragPreview(e);
 });
 document.addEventListener(
   'touchmove',
   (e) => {
     if (dragging) {
       e.preventDefault();
-      moveGhost(e);
+      updateDragPreview(e);
     }
   },
   { passive: false }
@@ -721,5 +755,21 @@ document.getElementById('hold-slot').addEventListener('click', swapHold);
 document.getElementById('hold-piece-btn').addEventListener('click', swapHold);
 document.getElementById('rbtn').addEventListener('click', restart);
 document.getElementById('undo-btn').addEventListener('click', doUndo);
+
+let layoutTimer = null;
+function onLayoutChange() {
+  clearTimeout(layoutTimer);
+  layoutTimer = setTimeout(() => {
+    const ghostCells =
+      dragging && snapR != null && snapC != null ? getGhostCells(dragging.piece, snapR, snapC) : [];
+    renderBoard(ghostCells);
+    renderPieces();
+    renderHold();
+    renderNext();
+  }, 120);
+}
+window.addEventListener('resize', onLayoutChange);
+window.addEventListener('orientationchange', onLayoutChange);
+if (window.visualViewport) window.visualViewport.addEventListener('resize', onLayoutChange);
 
 restart();

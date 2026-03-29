@@ -1,10 +1,23 @@
-<!DOCTYPE html>
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const root = path.join(__dirname, '..');
+const css = fs.readFileSync(path.join(root, 'src/style.css'), 'utf8');
+let js = fs.readFileSync(path.join(root, 'src/main.js'), 'utf8');
+js = js.replace(/^import\s+['"].*?['"];\s*\r?\n/m, '');
+
+const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="theme-color" content="#0a0a14" />
   <title>Block Blast</title>
+  <style>
+${css}
+  </style>
 </head>
 <body>
   <div id="gw">
@@ -55,6 +68,12 @@
     </div>
     <div id="hint">Drag to place · Piece snaps to grid · Bombs clear 3×3</div>
   </div>
-  <script type="module" src="/src/main.js"></script>
+  <script>
+${js}
+  </script>
 </body>
 </html>
+`;
+
+fs.writeFileSync(path.join(root, 'block_blast_v3.html'), html, 'utf8');
+console.log('Wrote block_blast_v3.html');
