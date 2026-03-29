@@ -1,58 +1,101 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="pt-BR">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <meta name="theme-color" content="#0a0a14" />
-  <title>Block Blast</title>
-</head>
-<body>
-  <div id="gw">
-    <div id="hdr">
-      <div class="sb"><div class="sl">Pontos</div><div class="sv" id="sd">0</div></div>
-      <div class="sb"><div class="sl">Recorde</div><div class="sv" id="bd">0</div></div>
-      <div class="sb"><div class="sl">Combo</div><div class="sv" id="cd" style="color:#fbbf24;">x1</div></div>
-      <div class="sb"><div class="sl">Linhas</div><div class="sv" id="ld" style="color:#34d399;">0</div></div>
-      <div class="sb"><div class="sl">Nível</div><div class="sv" id="lvd" style="color:#60a5fa;">1</div></div>
-    </div>
-    <div id="diff-bar">
-      <div class="panel-lbl" id="diff-label">Progresso do nível</div>
-      <div id="diff-track"><div id="diff-fill" style="width:0%"></div></div>
-      <div style="font-size:10px;color:#6b7280;" id="diff-next">10 linhas</div>
-    </div>
-    <div id="combo-bar"><div id="combo-badge"></div></div>
-    <div id="mid">
-      <div id="next-panel">
-        <div class="panel-lbl">Próximas</div>
-        <div id="next-slots"></div>
-      </div>
-      <div id="board-wrap">
-        <canvas id="pcanvas" width="1" height="1"></canvas>
-        <canvas id="flash-canvas" width="1" height="1"></canvas>
-        <div id="board"></div>
-        <div id="score-pop-wrap"></div>
-        <div id="go">
-          <h2>Fim de jogo</h2>
-          <div id="stats-list"></div>
-          <div id="lb-section"><h3>Ranking</h3><div id="lb-rows"></div></div>
-          <button type="button" id="rbtn">Jogar de novo</button>
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#0a0a14" />
+    <title>Block Blast</title>
+  </head>
+  <body>
+    <div id="gw">
+      <button
+        type="button"
+        id="undo-btn"
+        class="undo-icon-btn"
+        disabled
+        aria-label="Desfazer"
+        title="Desfazer"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="22"
+          height="22"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+        >
+          <path d="M3 7v6h6" />
+          <path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13" />
+        </svg>
+      </button>
+      <div id="hdr">
+        <div class="sb">
+          <div class="sl">Pontos</div>
+          <div class="sv" id="sd">0</div>
+        </div>
+        <div class="sb">
+          <div class="sl">Recorde</div>
+          <div class="sv" id="bd">0</div>
+        </div>
+        <div class="sb sb-compact">
+          <div class="sl">Combo</div>
+          <div class="sv" id="cd" style="color: #fbbf24">x1</div>
+        </div>
+        <div class="sb sb-compact">
+          <div class="sl">Linhas</div>
+          <div class="sv" id="ld" style="color: #34d399">0</div>
+        </div>
+        <div class="sb sb-compact">
+          <div class="sl">Nível</div>
+          <div class="sv" id="lvd" style="color: #60a5fa">1</div>
         </div>
       </div>
-      <div id="hold-panel">
-        <div class="panel-lbl">Reserva</div>
-        <div id="hold-slot">
-          <div id="hold-mini"></div>
-          <div id="hold-avail" style="color:#34d399;">vazio</div>
+      <div id="diff-bar">
+        <div class="panel-lbl" id="diff-label">Progresso do nível</div>
+        <div id="diff-track"><div id="diff-fill" style="width: 0%"></div></div>
+        <div style="font-size: 10px; color: #6b7280" id="diff-next">
+          10 linhas
         </div>
       </div>
+      <div id="combo-bar"><div id="combo-badge"></div></div>
+      <div id="mid">
+        <div id="next-panel">
+          <div class="panel-lbl">Próximas</div>
+          <div id="next-slots"></div>
+        </div>
+        <div id="board-wrap">
+          <div id="grid-toast-wrap" aria-live="polite"></div>
+          <canvas id="pcanvas" width="1" height="1"></canvas>
+          <canvas id="flash-canvas" width="1" height="1"></canvas>
+          <div id="board"></div>
+          <div id="score-pop-wrap"></div>
+          <div id="go">
+            <h2>Fim de jogo</h2>
+            <div id="stats-list"></div>
+            <div id="lb-section">
+              <h3>Ranking</h3>
+              <div id="lb-rows"></div>
+            </div>
+            <button type="button" id="rbtn">Jogar de novo</button>
+          </div>
+        </div>
+        <div id="hold-panel">
+          <div class="panel-lbl">Reserva</div>
+          <div id="hold-slot">
+            <div id="hold-mini"></div>
+            <div id="hold-avail" style="color: #34d399">vazio</div>
+          </div>
+        </div>
+      </div>
+      <div id="pieces-row"></div>
     </div>
-    <div id="pieces-row"></div>
-    <div id="actions">
-      <button type="button" class="act-btn" id="undo-btn" disabled>Desfazer (0)</button>
-      <button type="button" class="act-btn" id="hold-piece-btn">Reservar peça</button>
-    </div>
-    <div id="hint">Arraste para colocar · Encaixa na grelha · Bombas limpam 3×3</div>
-  </div>
-  <script type="module" src="/src/main.js"></script>
-</body>
+    <script type="module" src="/src/main.js"></script>
+  </body>
 </html>

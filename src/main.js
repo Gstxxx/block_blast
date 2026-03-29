@@ -80,6 +80,68 @@ const SHAPES = [
 ];
 const BOMB = { c: [[0, 0]], col: '#ff6b35', bomb: true, sz: 0 };
 
+/** HSL → #rrggbb (h 0–360, s/l 0–100) */
+function hslToHex(h, s, l) {
+  h = ((h % 360) + 360) % 360;
+  s = Math.max(0, Math.min(100, s)) / 100;
+  l = Math.max(0, Math.min(100, l)) / 100;
+  const c = (1 - Math.abs(2 * l - 1)) * s;
+  const hh = h / 60;
+  const x = c * (1 - Math.abs((hh % 2) - 1));
+  const m = l - c / 2;
+  let rp = 0,
+    gp = 0,
+    bp = 0;
+  if (hh < 1) {
+    rp = c;
+    gp = x;
+  } else if (hh < 2) {
+    rp = x;
+    gp = c;
+  } else if (hh < 3) {
+    gp = c;
+    bp = x;
+  } else if (hh < 4) {
+    gp = x;
+    bp = c;
+  } else if (hh < 5) {
+    rp = x;
+    bp = c;
+  } else {
+    rp = c;
+    bp = x;
+  }
+  const r = Math.round(255 * (rp + m));
+  const g = Math.round(255 * (gp + m));
+  const b = Math.round(255 * (bp + m));
+  return '#' + [r, g, b].map((v) => v.toString(16).padStart(2, '0')).join('');
+}
+
+function seededRandom(seed) {
+  let s = seed >>> 0;
+  return () => {
+    s = (Math.imul(s, 1664525) + 1013904223) >>> 0;
+    return s / 4294967296;
+  };
+}
+
+/** Paleta única por nível (determinística, aparência variada). */
+function applyBoardTheme(lv) {
+  const rng = seededRandom(Math.imul(lv, 2654435761) ^ 1597334677);
+  const h0 = rng() * 360;
+  const h1 = (h0 + 28 + rng() * 48) % 360;
+  const h2 = (h0 + 160 + rng() * 40) % 360;
+  const bg = hslToHex(h0, 16 + rng() * 18, 8 + rng() * 7);
+  const border = hslToHex(h1, 22 + rng() * 22, 18 + rng() * 14);
+  const cellEmpty = hslToHex(h2, 28 + rng() * 25, 4 + rng() * 6);
+  const gw = document.getElementById('gw');
+  const board = document.getElementById('board');
+  if (!gw || !board) return;
+  gw.style.setProperty('--cell-empty', cellEmpty);
+  board.style.setProperty('--board-bg', bg);
+  board.style.setProperty('--board-border', border);
+}
+
 let board,
   score,
   best = 0,
@@ -87,8 +149,9 @@ let board,
   nextQueue = [],
   dragging = null;
 let combo = 0,
-  holdPiece = null,
-  holdUsed = false;
+  holdPiece = null;
+/** Placements sem limpar linha no lote atual; em 3, o combo zera. */
+let comboNoClearStreak = 0;
 let totalLines = 0,
   bestCombo = 0,
   totalPlaced = 0,
@@ -242,6 +305,7 @@ function fillQueue() {
   while (nextQueue.length < 6) nextQueue.push(rndShape());
 }
 function popPieces() {
+  comboNoClearStreak = 0;
   fillQueue();
   pieces = [nextQueue.shift(), nextQueue.shift(), nextQueue.shift()];
   fillQueue();
@@ -287,6 +351,8 @@ function renderBoard(ghostSpec = null, opts = {}) {
         } else d.style.background = col;
       } else if (inGhost && dragging && !col && valid) {
         d.style.background = dragging.piece.col;
+      } else if (inGhost && dragging && !col && !valid) {
+        d.style.background = dragging.piece.col;
       }
       d.dataset.r = r;
       d.dataset.c = c;
@@ -310,14 +376,8 @@ function renderHold() {
     return;
   }
   slot.classList.add('has-piece');
-  if (holdUsed) {
-    slot.classList.add('used-hold');
-    avail.textContent = 'usado';
-    avail.style.color = '#6b7280';
-  } else {
-    avail.textContent = 'pronto';
-    avail.style.color = '#34d399';
-  }
+  avail.textContent = 'arraste → tabuleiro';
+  avail.style.color = '#34d399';
   const { maxC, maxR } = getPieceBox(holdPiece);
   const cs = maxC <= 2 && maxR <= 2 ? 13 : 10;
   mini.style.cssText = `display:grid;grid-template-columns:repeat(${maxC + 1},${cs}px);grid-template-rows:repeat(${maxR + 1},${cs}px);gap:2px;`;
@@ -355,22 +415,33 @@ function renderNext() {
 function buildPieceMini(p, slotW) {
   const { maxC, maxR } = getPieceBox(p);
   const dim = Math.max(maxC, maxR) + 1;
-  const cs = Math.max(8, Math.min(maxC <= 2 && maxR <= 2 ? 20 : maxC <= 3 && maxR <= 3 ? 15 : 11, Math.floor((slotW - 12) / dim)));
+  let cs, gap, boardMode = false;
+  if (slotW === 'board') {
+    syncLayoutMetrics();
+    cs = cellPx;
+    gap = gapPx;
+    boardMode = true;
+  } else {
+    gap = 3;
+    cs = Math.max(8, Math.min(maxC <= 2 && maxR <= 2 ? 20 : maxC <= 3 && maxR <= 3 ? 15 : 11, Math.floor((slotW - 12) / dim)));
+  }
   const mini = document.createElement('div');
-  mini.className = 'pmini';
-  mini.style.cssText = `grid-template-columns:repeat(${maxC + 1},${cs}px);grid-template-rows:repeat(${maxR + 1},${cs}px);gap:3px;`;
+  mini.className = 'pmini' + (boardMode ? ' pmini-board' : '');
+  mini.style.cssText = `grid-template-columns:repeat(${maxC + 1},${cs}px);grid-template-rows:repeat(${maxR + 1},${cs}px);gap:${gap}px;`;
+  const bombFs = boardMode ? Math.max(11, Math.round(cs * 0.42)) + 'px' : '11px';
   for (let r2 = 0; r2 <= maxR; r2++)
     for (let c2 = 0; c2 <= maxC; c2++) {
       const mc = document.createElement('div');
       mc.className = 'pm-cell';
       mc.style.cssText = `width:${cs}px;height:${cs}px;`;
+      if (boardMode) mc.style.borderRadius = '6px';
       const filled = p.c.some(([cc, rr]) => cc === c2 && rr === r2);
       mc.style.background = filled ? p.col : 'transparent';
       if (filled) mc.style.boxShadow = 'inset 0 1px 2px rgba(255,255,255,0.18)';
       if (p.bomb && filled) {
         mc.style.background = '#ff6b35';
         mc.textContent = '💣';
-        mc.style.fontSize = '11px';
+        mc.style.fontSize = bombFs;
         mc.style.display = 'flex';
         mc.style.alignItems = 'center';
         mc.style.justifyContent = 'center';
@@ -383,8 +454,7 @@ function buildPieceMini(p, slotW) {
 function createDragFloat(p) {
   const wrap = document.createElement('div');
   wrap.id = 'drag-float';
-  const slotW = Math.min(96, Math.max(72, Math.floor(window.innerWidth * 0.26)));
-  wrap.appendChild(buildPieceMini(p, slotW));
+  wrap.appendChild(buildPieceMini(p, 'board'));
   document.body.appendChild(wrap);
   return wrap;
 }
@@ -419,22 +489,31 @@ function renderPieces() {
   });
 }
 
-function swapHold() {
-  if (holdUsed) return;
-  const fi = pieces.findIndex((p) => p !== null);
-  if (fi === -1) return;
-  const temp = holdPiece;
-  holdPiece = pieces[fi];
-  holdUsed = true;
-  pieces[fi] = temp || rndShape();
-  renderHold();
-  renderPieces();
+function fingerInHoldRect(x, y) {
+  const el = document.getElementById('hold-slot');
+  if (!el) return false;
+  const r = el.getBoundingClientRect();
+  return x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
+}
+
+function startDragFromHold(e) {
+  if (!holdPiece || dragging) return;
+  if (!e.target.closest('#hold-slot')) return;
+  e.preventDefault();
+  e.stopPropagation();
+  dragging = { fromHold: true, piece: holdPiece, floatEl: createDragFloat(holdPiece) };
+  snapR = null;
+  snapC = null;
+  document.getElementById('hold-slot')?.classList.add('drag-src-hold');
+  const p0 = getClientPoint(e);
+  if (Number.isFinite(p0.x) && Number.isFinite(p0.y)) lastDragPoint = p0;
+  updateDragPreview(e);
 }
 
 function startDrag(e, idx) {
   if (pieces[idx] === null) return;
   e.preventDefault();
-  dragging = { idx, piece: pieces[idx], floatEl: createDragFloat(pieces[idx]) };
+  dragging = { fromHold: false, idx, piece: pieces[idx], floatEl: createDragFloat(pieces[idx]) };
   snapR = null;
   snapC = null;
   document.querySelectorAll('.pslot')[idx]?.classList.add('drag-src');
@@ -533,24 +612,53 @@ function showScorePop(pts, x, y) {
   setTimeout(() => pop.remove(), 680);
 }
 
-function showComboBadge(c) {
-  const b = document.getElementById('combo-badge');
-  b.style.display = 'block';
-  if (c >= 5) {
-    b.style.background = '#f59e0b';
-    b.textContent = 'COMBO MEGA x' + c;
-  } else if (c >= 3) {
-    b.style.background = '#8b5cf6';
-    b.textContent = 'SUPER COMBO x' + c;
-  } else {
-    b.style.background = '#f472b6';
-    b.textContent = 'COMBO x' + c;
+function showGridTopToast(main, sub, opts = {}) {
+  const wrap = document.getElementById('grid-toast-wrap');
+  if (!wrap) return;
+  const el = document.createElement('div');
+  el.className = 'grid-toast-item';
+  const m = document.createElement('div');
+  m.className = 'grid-toast-main';
+  m.textContent = main;
+  el.appendChild(m);
+  if (sub) {
+    const s = document.createElement('div');
+    s.className = 'grid-toast-sub';
+    s.textContent = sub;
+    el.appendChild(s);
   }
-  b.style.animation = 'none';
-  void b.offsetWidth;
-  b.style.animation = 'comboPop 0.3s ease';
-  clearTimeout(b._t);
-  b._t = setTimeout(() => (b.style.display = 'none'), 1400);
+  wrap.appendChild(el);
+  const dur = opts.duration ?? 820;
+  setTimeout(() => {
+    el.classList.add('fade-out');
+    setTimeout(() => el.remove(), 260);
+  }, dur);
+}
+
+function showGridTopCombo(c) {
+  const wrap = document.getElementById('grid-toast-wrap');
+  if (!wrap) return;
+  const el = document.createElement('div');
+  el.className = 'grid-toast-item';
+  const inner = document.createElement('div');
+  inner.className = 'grid-toast-combo';
+  if (c >= 5) {
+    inner.classList.add('combo-orange');
+    inner.textContent = 'MEGA ×' + c;
+  } else if (c >= 3) {
+    inner.classList.add('combo-purple');
+    inner.textContent = 'SUPER ×' + c;
+  } else {
+    inner.classList.add('combo-pink');
+    inner.textContent = 'COMBO ×' + c;
+  }
+  el.appendChild(inner);
+  wrap.appendChild(el);
+  sndCombo(c);
+  setTimeout(() => {
+    el.classList.add('fade-out');
+    setTimeout(() => el.remove(), 260);
+  }, 1200);
 }
 
 function updateDiffBar() {
@@ -568,6 +676,7 @@ function checkLevelUp(linesCleared) {
     levelLines -= 10;
     level++;
     sndLevel();
+    applyBoardTheme(level);
     updateDiffBar();
   } else updateDiffBar();
 }
@@ -597,27 +706,43 @@ function clearLines(pr, pc) {
     spawnParticles(cells);
     sndClear(cleared);
     if (cleared >= 2) doShake();
+    comboNoClearStreak = 0;
     combo++;
     bestCombo = Math.max(bestCombo, combo);
     totalLines += cleared;
     checkLevelUp(cleared);
     const lineBonus = cleared * cleared * 10 * ((1 + level * 0.1) | 0);
-    const comboBonus = combo > 1 ? Math.floor(lineBonus * (combo - 1) * 0.5) : 0;
-    const pts = lineBonus + comboBonus;
+    const pts = Math.floor(lineBonus * combo);
     score += pts;
+    const basePer = Math.floor(lineBonus / cleared);
+    const rem = lineBonus - basePer * cleared;
+    const stagger = Math.min(150, Math.max(85, 680 / cleared));
+    for (let i = 0; i < cleared; i++) {
+      const basePart = basePer + (i === cleared - 1 ? rem : 0);
+      const partPts = Math.floor(basePart * combo);
+      setTimeout(
+        () =>
+          showGridTopToast('+' + partPts, 'Linha ' + (i + 1) + '/' + cleared + ' · ×' + combo, {
+            duration: 760,
+          }),
+        i * stagger
+      );
+    }
     if (combo > 1) {
-      showComboBadge(combo);
-      sndCombo(combo);
+      setTimeout(() => showGridTopCombo(combo), cleared * stagger + 120);
     }
     syncLayoutMetrics();
-    showScorePop(pts, padPx + pc * CELL + cellPx / 2, padPx + pr * CELL - Math.max(8, cellPx * 0.25));
     document.getElementById('cd').textContent = 'x' + combo;
     document.getElementById('cd').style.color = combo >= 5 ? '#f59e0b' : combo >= 3 ? '#a78bfa' : '#fbbf24';
     return true;
   } else {
-    combo = 0;
-    document.getElementById('cd').textContent = 'x1';
-    document.getElementById('cd').style.color = '#fbbf24';
+    comboNoClearStreak++;
+    if (comboNoClearStreak >= 3) {
+      combo = 0;
+      comboNoClearStreak = 0;
+      document.getElementById('cd').textContent = 'x1';
+      document.getElementById('cd').style.color = '#fbbf24';
+    }
     return false;
   }
 }
@@ -630,8 +755,11 @@ function updateScore() {
 }
 function updateUndo() {
   const btn = document.getElementById('undo-btn');
-  btn.textContent = 'Desfazer (' + undoStack.length + ')';
-  btn.disabled = undoStack.length === 0;
+  const n = undoStack.length;
+  btn.disabled = n === 0;
+  const tip = n ? `Desfazer (${n} restante${n > 1 ? 's' : ''})` : 'Nada para desfazer';
+  btn.title = tip;
+  btn.setAttribute('aria-label', tip);
 }
 
 function doUndo() {
@@ -641,23 +769,30 @@ function doUndo() {
   score = s.score;
   pieces = s.pieces;
   combo = s.combo;
+  comboNoClearStreak = s.comboNoClearStreak ?? 0;
+  holdPiece = s.holdPiece !== undefined ? (s.holdPiece ? JSON.parse(JSON.stringify(s.holdPiece)) : null) : null;
   totalLines = s.tl;
   level = s.lv;
   levelLines = s.ll;
   updateScore();
   updateUndo();
   updateDiffBar();
+  applyBoardTheme(level);
   renderBoard();
   renderPieces();
+  renderHold();
 }
 
 function checkGameOver() {
   const avail = pieces.filter((p) => p !== null);
-  const ok = avail.some((p) => {
+  const pieceCanPlace = (p) => {
+    if (!p) return false;
     if (p.bomb) return true;
     for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) if (canPlace(p, r, c)) return true;
     return false;
-  });
+  };
+  const ok =
+    avail.some(pieceCanPlace) || (holdPiece && pieceCanPlace(holdPiece));
   if (!ok) {
     showGameOver();
     sndOver();
@@ -696,6 +831,7 @@ function showGameOver() {
 function endDrag(e) {
   if (!dragging) return;
   document.querySelectorAll('.pslot').forEach((s) => s.classList.remove('drag-src'));
+  document.getElementById('hold-slot')?.classList.remove('drag-src-hold');
   removeDragFloat(dragging.floatEl);
   dragging.floatEl = null;
   const finger = fingerOrLast(e);
@@ -707,22 +843,61 @@ function endDrag(e) {
     renderBoard();
     return;
   }
+
+  if (!dragging.fromHold && fingerInHoldRect(finger.x, finger.y)) {
+    undoStack.push({
+      board: cloneBoard(),
+      score,
+      pieces: clonePieces(),
+      holdPiece: holdPiece ? JSON.parse(JSON.stringify(holdPiece)) : null,
+      combo,
+      comboNoClearStreak,
+      tl: totalLines,
+      lv: level,
+      ll: levelLines,
+    });
+    if (undoStack.length > 3) undoStack.shift();
+    updateUndo();
+    const prevHold = holdPiece;
+    holdPiece = JSON.parse(JSON.stringify(dragging.piece));
+    pieces[dragging.idx] = prevHold ? JSON.parse(JSON.stringify(prevHold)) : rndShape();
+    renderHold();
+    renderPieces();
+    renderBoard();
+    dragging = null;
+    snapR = null;
+    snapC = null;
+    lastDragPoint = null;
+    return;
+  }
+
   const place = getPlacementPoint(finger);
   const { r, c } = getBoardSnap(place.x, place.y);
   const canDrop = dragging.piece.bomb ? r >= 0 && r < ROWS && c >= 0 && c < COLS : canPlace(dragging.piece, r, c);
+
+  if (dragging.fromHold && fingerInHoldRect(finger.x, finger.y)) {
+    renderBoard();
+    dragging = null;
+    snapR = null;
+    snapC = null;
+    lastDragPoint = null;
+    return;
+  }
+
   if (canDrop) {
     undoStack.push({
       board: cloneBoard(),
       score,
       pieces: clonePieces(),
+      holdPiece: holdPiece ? JSON.parse(JSON.stringify(holdPiece)) : null,
       combo,
+      comboNoClearStreak,
       tl: totalLines,
       lv: level,
       ll: levelLines,
     });
-    if (undoStack.length > 10) undoStack.shift();
+    if (undoStack.length > 3) undoStack.shift();
     updateUndo();
-    holdUsed = false;
     const placedCells = dragging.piece.bomb ? [] : dragging.piece.c.map(([dc, dr]) => [r + dr, c + dc]);
     if (dragging.piece.bomb) {
       for (let dr = -1; dr <= 1; dr++)
@@ -752,11 +927,14 @@ function endDrag(e) {
     totalPlaced++;
     renderBoard();
     bounceCells(placedCells);
-    pieces[dragging.idx] = null;
+    if (dragging.fromHold) {
+      holdPiece = null;
+    } else {
+      pieces[dragging.idx] = null;
+    }
     clearLines(r, c);
     if (pieces.every((p) => p === null)) {
       popPieces();
-      holdUsed = false;
     }
     updateScore();
     renderPieces();
@@ -780,19 +958,20 @@ function restart() {
   lastDragPoint = null;
   score = 0;
   combo = 0;
+  comboNoClearStreak = 0;
   bestCombo = 0;
   totalLines = 0;
   totalPlaced = 0;
   level = 1;
   levelLines = 0;
   holdPiece = null;
-  holdUsed = false;
   undoStack = [];
   nextQueue = [];
   particles = [];
   document.getElementById('cd').textContent = 'x1';
   document.getElementById('cd').style.color = '#fbbf24';
   document.getElementById('combo-badge').style.display = 'none';
+  document.getElementById('grid-toast-wrap')?.replaceChildren();
   pctx.clearRect(0, 0, pcanvas.width, pcanvas.height);
   fctx.clearRect(0, 0, fcanvas.width, fcanvas.height);
   initBoard();
@@ -801,6 +980,7 @@ function restart() {
   updateScore();
   updateUndo();
   updateDiffBar();
+  applyBoardTheme(level);
   renderBoard();
   renderPieces();
   renderHold();
@@ -831,8 +1011,20 @@ document.addEventListener('touchcancel', (e) => {
   if (dragging) endDrag(e);
 });
 
-document.getElementById('hold-slot').addEventListener('click', swapHold);
-document.getElementById('hold-piece-btn').addEventListener('click', swapHold);
+document.getElementById('hold-panel').addEventListener('mousedown', (e) => {
+  if (!holdPiece || dragging) return;
+  if (!e.target.closest('#hold-slot')) return;
+  startDragFromHold(e);
+});
+document.getElementById('hold-panel').addEventListener(
+  'touchstart',
+  (e) => {
+    if (!holdPiece || dragging) return;
+    if (!e.target.closest('#hold-slot')) return;
+    startDragFromHold(e);
+  },
+  { passive: false }
+);
 document.getElementById('rbtn').addEventListener('click', restart);
 document.getElementById('undo-btn').addEventListener('click', doUndo);
 
