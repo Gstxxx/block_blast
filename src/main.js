@@ -102,6 +102,12 @@ let snapR = null,
   snapC = null;
 let lastDragPoint = null;
 
+/** Finger → board/float: ghost, snap, and dragged piece align to this point (px above touch). */
+const PLACEMENT_OFFSET_Y = 200;
+function getPlacementPoint(finger) {
+  return { x: finger.x, y: finger.y - PLACEMENT_OFFSET_Y };
+}
+
 const pcanvas = document.getElementById('pcanvas');
 const pctx = pcanvas.getContext('2d');
 const fcanvas = document.getElementById('flash-canvas');
@@ -490,11 +496,12 @@ function updateDragPreview(e) {
   const finger = fingerOrLast(e);
   if (!finger) return;
   lastDragPoint = finger;
+  const place = getPlacementPoint(finger);
   if (dragging.floatEl) {
-    dragging.floatEl.style.left = finger.x + 'px';
-    dragging.floatEl.style.top = finger.y + 'px';
+    dragging.floatEl.style.left = place.x + 'px';
+    dragging.floatEl.style.top = place.y + 'px';
   }
-  const { r, c } = getBoardSnap(finger.x, finger.y);
+  const { r, c } = getBoardSnap(place.x, place.y);
   snapR = r;
   snapC = c;
   renderBoard(getGhostSpec(dragging.piece, r, c), { fromMoveGhost: true });
@@ -700,7 +707,8 @@ function endDrag(e) {
     renderBoard();
     return;
   }
-  const { r, c } = getBoardSnap(finger.x, finger.y);
+  const place = getPlacementPoint(finger);
+  const { r, c } = getBoardSnap(place.x, place.y);
   const canDrop = dragging.piece.bomb ? r >= 0 && r < ROWS && c >= 0 && c < COLS : canPlace(dragging.piece, r, c);
   if (canDrop) {
     undoStack.push({

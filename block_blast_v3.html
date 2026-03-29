@@ -75,7 +75,7 @@ html,body{min-height:100%;min-height:100dvh;width:100%;max-width:100%;overflow-x
 #hold-slot:hover:not(.used-hold){border-color:#f472b6;}
 #hold-avail{font-size:9px;margin-top:2px;font-weight:600;}
 #next-panel{display:flex;flex-direction:column;align-items:center;gap:4px;}
-#next-slots{display:flex;flex-direction:column;gap:6px;}
+#next-slots{display:flex;flex-direction:row;flex-wrap:nowrap;justify-content:center;align-items:center;gap:6px;}
 .next-slot{width:clamp(56px,18vw,72px);height:clamp(44px,14vw,56px);background:#1c1c35;border-radius:8px;border:1px solid #2a2a50;display:flex;align-items:center;justify-content:center;}
 #board-wrap{
   position:relative;
@@ -90,7 +90,7 @@ canvas#pcanvas{z-index:50;}
 canvas#flash-canvas{z-index:49;}
 #drag-float{
   position:fixed;left:0;top:0;pointer-events:none;z-index:100;
-  transform:translate(-50%,-50%) translateY(-20px);
+  transform:translate(-50%,-50%);
   filter:drop-shadow(0 3px 10px rgba(0,0,0,0.45));
 }
 #board{
@@ -306,6 +306,12 @@ let animFrame = null;
 let snapR = null,
   snapC = null;
 let lastDragPoint = null;
+
+/** Finger → board/float: ghost, snap, and dragged piece align to this point (px above touch). */
+const PLACEMENT_OFFSET_Y = 200;
+function getPlacementPoint(finger) {
+  return { x: finger.x, y: finger.y - PLACEMENT_OFFSET_Y };
+}
 
 const pcanvas = document.getElementById('pcanvas');
 const pctx = pcanvas.getContext('2d');
@@ -695,11 +701,12 @@ function updateDragPreview(e) {
   const finger = fingerOrLast(e);
   if (!finger) return;
   lastDragPoint = finger;
+  const place = getPlacementPoint(finger);
   if (dragging.floatEl) {
-    dragging.floatEl.style.left = finger.x + 'px';
-    dragging.floatEl.style.top = finger.y + 'px';
+    dragging.floatEl.style.left = place.x + 'px';
+    dragging.floatEl.style.top = place.y + 'px';
   }
-  const { r, c } = getBoardSnap(finger.x, finger.y);
+  const { r, c } = getBoardSnap(place.x, place.y);
   snapR = r;
   snapC = c;
   renderBoard(getGhostSpec(dragging.piece, r, c), { fromMoveGhost: true });
@@ -905,7 +912,8 @@ function endDrag(e) {
     renderBoard();
     return;
   }
-  const { r, c } = getBoardSnap(finger.x, finger.y);
+  const place = getPlacementPoint(finger);
+  const { r, c } = getBoardSnap(place.x, place.y);
   const canDrop = dragging.piece.bomb ? r >= 0 && r < ROWS && c >= 0 && c < COLS : canPlace(dragging.piece, r, c);
   if (canDrop) {
     undoStack.push({
