@@ -286,7 +286,7 @@ function renderHold() {
   mini.innerHTML = '';
   slot.className = '';
   if (!holdPiece) {
-    avail.textContent = 'empty';
+    avail.textContent = 'vazio';
     avail.style.color = '#4b5563';
     slot.style.borderStyle = 'dashed';
     slot.style.borderColor = '#2a2a50';
@@ -295,10 +295,10 @@ function renderHold() {
   slot.classList.add('has-piece');
   if (holdUsed) {
     slot.classList.add('used-hold');
-    avail.textContent = 'used';
+    avail.textContent = 'usado';
     avail.style.color = '#6b7280';
   } else {
-    avail.textContent = 'ready';
+    avail.textContent = 'pronto';
     avail.style.color = '#34d399';
   }
   const { maxC, maxR } = getPieceBox(holdPiece);
@@ -370,7 +370,9 @@ function renderPieces() {
       slot.appendChild(mini);
       const lbl = document.createElement('div');
       lbl.style.cssText = 'font-size:10px;color:#6b7280;margin-top:3px;';
-      lbl.textContent = p.bomb ? 'Bomb' : p.c.length + ' block' + (p.c.length > 1 ? 's' : '');
+      lbl.textContent = p.bomb
+        ? 'Bomba'
+        : p.c.length + ' ' + (p.c.length > 1 ? 'blocos' : 'bloco');
       slot.appendChild(lbl);
       slot.addEventListener('mousedown', (e) => startDrag(e, i));
       slot.addEventListener(
@@ -478,7 +480,7 @@ function showComboBadge(c) {
   b.style.display = 'block';
   if (c >= 5) {
     b.style.background = '#f59e0b';
-    b.textContent = 'MEGA COMBO x' + c;
+    b.textContent = 'COMBO MEGA x' + c;
   } else if (c >= 3) {
     b.style.background = '#8b5cf6';
     b.textContent = 'SUPER COMBO x' + c;
@@ -499,7 +501,7 @@ function updateDiffBar() {
   document.getElementById('diff-fill').style.width = prog * 100 + '%';
   document.getElementById('lvd').textContent = level;
   const remaining = linesPerLevel - levelLines;
-  document.getElementById('diff-next').textContent = remaining > 0 ? remaining + ' lines' : 'MAX';
+  document.getElementById('diff-next').textContent = remaining > 0 ? remaining + ' linhas' : 'MÁX';
 }
 
 function checkLevelUp(linesCleared) {
@@ -570,7 +572,7 @@ function updateScore() {
 }
 function updateUndo() {
   const btn = document.getElementById('undo-btn');
-  btn.textContent = 'Undo (' + undoStack.length + ')';
+  btn.textContent = 'Desfazer (' + undoStack.length + ')';
   btn.disabled = undoStack.length === 0;
 }
 
@@ -611,11 +613,11 @@ function showGameOver() {
   const sl = document.getElementById('stats-list');
   sl.innerHTML = '';
   [
-    { l: 'Final score', v: score },
-    { l: 'Level reached', v: level },
-    { l: 'Best combo', v: 'x' + bestCombo },
-    { l: 'Lines cleared', v: totalLines },
-    { l: 'Pieces placed', v: totalPlaced },
+    { l: 'Pontuação final', v: score },
+    { l: 'Nível alcançado', v: level },
+    { l: 'Melhor combo', v: 'x' + bestCombo },
+    { l: 'Linhas limpas', v: totalLines },
+    { l: 'Peças colocadas', v: totalPlaced },
   ].forEach(({ l, v }) => {
     const row = document.createElement('div');
     row.className = 'stat-row';
@@ -627,7 +629,7 @@ function showGameOver() {
   leaderboard.forEach((s, i) => {
     const row = document.createElement('div');
     row.className = 'lb-row';
-    row.innerHTML = `<span>${i === 0 ? 'Champion' : '#' + (i + 1)}</span><span>${s}</span>`;
+    row.innerHTML = `<span>${i === 0 ? 'Campeão' : '#' + (i + 1)}</span><span>${s}</span>`;
     lbr.appendChild(row);
   });
   document.getElementById('go').classList.add('show');

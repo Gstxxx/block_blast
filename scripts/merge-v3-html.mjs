@@ -8,72 +8,12 @@ const css = fs.readFileSync(path.join(root, 'src/style.css'), 'utf8');
 let js = fs.readFileSync(path.join(root, 'src/main.js'), 'utf8');
 js = js.replace(/^import\s+['"].*?['"];\s*\r?\n/m, '');
 
-const html = `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <meta name="theme-color" content="#0a0a14" />
-  <title>Block Blast</title>
-  <style>
-${css}
-  </style>
-</head>
-<body>
-  <div id="gw">
-    <div id="hdr">
-      <div class="sb"><div class="sl">Score</div><div class="sv" id="sd">0</div></div>
-      <div class="sb"><div class="sl">Best</div><div class="sv" id="bd">0</div></div>
-      <div class="sb"><div class="sl">Combo</div><div class="sv" id="cd" style="color:#fbbf24;">x1</div></div>
-      <div class="sb"><div class="sl">Lines</div><div class="sv" id="ld" style="color:#34d399;">0</div></div>
-      <div class="sb"><div class="sl">Level</div><div class="sv" id="lvd" style="color:#60a5fa;">1</div></div>
-    </div>
-    <div id="diff-bar">
-      <div class="panel-lbl" id="diff-label">Level progress</div>
-      <div id="diff-track"><div id="diff-fill" style="width:0%"></div></div>
-      <div style="font-size:10px;color:#6b7280;" id="diff-next">10 lines</div>
-    </div>
-    <div id="combo-bar"><div id="combo-badge"></div></div>
-    <div id="mid">
-      <div id="left-panel">
-        <div id="hold-panel">
-          <div class="panel-lbl">Hold</div>
-          <div id="hold-slot">
-            <div id="hold-mini"></div>
-            <div id="hold-avail" style="color:#34d399;">empty</div>
-          </div>
-        </div>
-        <div id="next-panel">
-          <div class="panel-lbl">Next</div>
-          <div id="next-slots"></div>
-        </div>
-      </div>
-      <div id="board-wrap">
-        <canvas id="pcanvas" width="1" height="1"></canvas>
-        <canvas id="flash-canvas" width="1" height="1"></canvas>
-        <div id="board"></div>
-        <div id="score-pop-wrap"></div>
-        <div id="go">
-          <h2>Game Over</h2>
-          <div id="stats-list"></div>
-          <div id="lb-section"><h3>Leaderboard</h3><div id="lb-rows"></div></div>
-          <button type="button" id="rbtn">Play Again</button>
-        </div>
-      </div>
-    </div>
-    <div id="pieces-row"></div>
-    <div id="actions">
-      <button type="button" class="act-btn" id="undo-btn" disabled>Undo (0)</button>
-      <button type="button" class="act-btn" id="hold-piece-btn">Hold piece</button>
-    </div>
-    <div id="hint">Drag to place · Piece snaps to grid · Bombs clear 3×3</div>
-  </div>
-  <script>
-${js}
-  </script>
-</body>
-</html>
-`;
+let indexHtml = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+indexHtml = indexHtml.replace('</head>', `  <style>\n${css}\n  </style>\n</head>`);
+indexHtml = indexHtml.replace(
+  '<script type="module" src="/src/main.js"></script>',
+  `<script>\n${js}\n  </script>`
+);
 
-fs.writeFileSync(path.join(root, 'block_blast_v3.html'), html, 'utf8');
+fs.writeFileSync(path.join(root, 'block_blast_v3.html'), indexHtml, 'utf8');
 console.log('Wrote block_blast_v3.html');

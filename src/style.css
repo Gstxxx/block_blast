@@ -34,14 +34,31 @@ html,body{min-height:100%;min-height:100dvh;width:100%;max-width:100%;overflow-x
 #combo-bar{min-height:24px;display:flex;align-items:center;justify-content:center;margin-bottom:6px;}
 #combo-badge{display:none;border-radius:20px;padding:3px 14px;font-size:12px;font-weight:700;color:#fff;animation:comboPop 0.3s ease;}
 @keyframes comboPop{0%{transform:scale(0.5);opacity:0;}65%{transform:scale(1.18);}100%{transform:scale(1);opacity:1;}}
-#mid{display:flex;flex-direction:column;align-items:center;width:100%;gap:10px;}
-@media (min-width:640px){
-  #mid{flex-direction:row;align-items:flex-start;justify-content:center;}
+#mid{
+  display:grid;
+  width:100%;
+  gap:10px;
+  justify-items:center;
+  align-items:start;
+  grid-template-columns:1fr;
+  grid-template-areas:
+    "next"
+    "board"
+    "hold";
 }
-#left-panel{display:flex;flex-direction:row;flex-wrap:wrap;justify-content:center;align-items:flex-start;gap:12px 20px;width:100%;}
 @media (min-width:640px){
-  #left-panel{flex-direction:column;width:auto;gap:8px;align-items:center;}
+  #mid{
+    grid-template-columns:auto auto;
+    grid-template-rows:auto auto;
+    grid-template-areas:
+      "hold board"
+      "next board";
+    justify-content:center;
+  }
 }
+#next-panel{grid-area:next;}
+#board-wrap{grid-area:board;}
+#hold-panel{grid-area:hold;}
 #hold-panel{display:flex;flex-direction:column;align-items:center;gap:4px;}
 .panel-lbl{font-size:10px;color:#6b7280;text-transform:uppercase;letter-spacing:1px;}
 #hold-slot{width:clamp(56px,18vw,72px);height:clamp(56px,18vw,72px);background:#1c1c35;border-radius:10px;border:2px dashed #2a2a50;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-direction:column;gap:3px;transition:border-color 0.2s,background 0.2s;position:relative;}
@@ -53,16 +70,12 @@ html,body{min-height:100%;min-height:100dvh;width:100%;max-width:100%;overflow-x
 #next-slots{display:flex;flex-direction:column;gap:6px;}
 .next-slot{width:clamp(56px,18vw,72px);height:clamp(44px,14vw,56px);background:#1c1c35;border-radius:8px;border:1px solid #2a2a50;display:flex;align-items:center;justify-content:center;}
 #board-wrap{
-  order:-1;
   position:relative;
   width:fit-content;
   max-width:100%;
   margin:0 auto;
   display:flex;
   justify-content:center;
-}
-@media (min-width:640px){
-  #board-wrap{order:0;}
 }
 canvas#pcanvas,canvas#flash-canvas{position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none;}
 canvas#pcanvas{z-index:50;}

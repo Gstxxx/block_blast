@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
@@ -42,14 +42,31 @@ html,body{min-height:100%;min-height:100dvh;width:100%;max-width:100%;overflow-x
 #combo-bar{min-height:24px;display:flex;align-items:center;justify-content:center;margin-bottom:6px;}
 #combo-badge{display:none;border-radius:20px;padding:3px 14px;font-size:12px;font-weight:700;color:#fff;animation:comboPop 0.3s ease;}
 @keyframes comboPop{0%{transform:scale(0.5);opacity:0;}65%{transform:scale(1.18);}100%{transform:scale(1);opacity:1;}}
-#mid{display:flex;flex-direction:column;align-items:center;width:100%;gap:10px;}
-@media (min-width:640px){
-  #mid{flex-direction:row;align-items:flex-start;justify-content:center;}
+#mid{
+  display:grid;
+  width:100%;
+  gap:10px;
+  justify-items:center;
+  align-items:start;
+  grid-template-columns:1fr;
+  grid-template-areas:
+    "next"
+    "board"
+    "hold";
 }
-#left-panel{display:flex;flex-direction:row;flex-wrap:wrap;justify-content:center;align-items:flex-start;gap:12px 20px;width:100%;}
 @media (min-width:640px){
-  #left-panel{flex-direction:column;width:auto;gap:8px;align-items:center;}
+  #mid{
+    grid-template-columns:auto auto;
+    grid-template-rows:auto auto;
+    grid-template-areas:
+      "hold board"
+      "next board";
+    justify-content:center;
+  }
 }
+#next-panel{grid-area:next;}
+#board-wrap{grid-area:board;}
+#hold-panel{grid-area:hold;}
 #hold-panel{display:flex;flex-direction:column;align-items:center;gap:4px;}
 .panel-lbl{font-size:10px;color:#6b7280;text-transform:uppercase;letter-spacing:1px;}
 #hold-slot{width:clamp(56px,18vw,72px);height:clamp(56px,18vw,72px);background:#1c1c35;border-radius:10px;border:2px dashed #2a2a50;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-direction:column;gap:3px;transition:border-color 0.2s,background 0.2s;position:relative;}
@@ -61,16 +78,12 @@ html,body{min-height:100%;min-height:100dvh;width:100%;max-width:100%;overflow-x
 #next-slots{display:flex;flex-direction:column;gap:6px;}
 .next-slot{width:clamp(56px,18vw,72px);height:clamp(44px,14vw,56px);background:#1c1c35;border-radius:8px;border:1px solid #2a2a50;display:flex;align-items:center;justify-content:center;}
 #board-wrap{
-  order:-1;
   position:relative;
   width:fit-content;
   max-width:100%;
   margin:0 auto;
   display:flex;
   justify-content:center;
-}
-@media (min-width:640px){
-  #board-wrap{order:0;}
 }
 canvas#pcanvas,canvas#flash-canvas{position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none;}
 canvas#pcanvas{z-index:50;}
@@ -140,31 +153,22 @@ canvas#flash-canvas{z-index:49;}
 <body>
   <div id="gw">
     <div id="hdr">
-      <div class="sb"><div class="sl">Score</div><div class="sv" id="sd">0</div></div>
-      <div class="sb"><div class="sl">Best</div><div class="sv" id="bd">0</div></div>
+      <div class="sb"><div class="sl">Pontos</div><div class="sv" id="sd">0</div></div>
+      <div class="sb"><div class="sl">Recorde</div><div class="sv" id="bd">0</div></div>
       <div class="sb"><div class="sl">Combo</div><div class="sv" id="cd" style="color:#fbbf24;">x1</div></div>
-      <div class="sb"><div class="sl">Lines</div><div class="sv" id="ld" style="color:#34d399;">0</div></div>
-      <div class="sb"><div class="sl">Level</div><div class="sv" id="lvd" style="color:#60a5fa;">1</div></div>
+      <div class="sb"><div class="sl">Linhas</div><div class="sv" id="ld" style="color:#34d399;">0</div></div>
+      <div class="sb"><div class="sl">Nível</div><div class="sv" id="lvd" style="color:#60a5fa;">1</div></div>
     </div>
     <div id="diff-bar">
-      <div class="panel-lbl" id="diff-label">Level progress</div>
+      <div class="panel-lbl" id="diff-label">Progresso do nível</div>
       <div id="diff-track"><div id="diff-fill" style="width:0%"></div></div>
-      <div style="font-size:10px;color:#6b7280;" id="diff-next">10 lines</div>
+      <div style="font-size:10px;color:#6b7280;" id="diff-next">10 linhas</div>
     </div>
     <div id="combo-bar"><div id="combo-badge"></div></div>
     <div id="mid">
-      <div id="left-panel">
-        <div id="hold-panel">
-          <div class="panel-lbl">Hold</div>
-          <div id="hold-slot">
-            <div id="hold-mini"></div>
-            <div id="hold-avail" style="color:#34d399;">empty</div>
-          </div>
-        </div>
-        <div id="next-panel">
-          <div class="panel-lbl">Next</div>
-          <div id="next-slots"></div>
-        </div>
+      <div id="next-panel">
+        <div class="panel-lbl">Próximas</div>
+        <div id="next-slots"></div>
       </div>
       <div id="board-wrap">
         <canvas id="pcanvas" width="1" height="1"></canvas>
@@ -172,19 +176,26 @@ canvas#flash-canvas{z-index:49;}
         <div id="board"></div>
         <div id="score-pop-wrap"></div>
         <div id="go">
-          <h2>Game Over</h2>
+          <h2>Fim de jogo</h2>
           <div id="stats-list"></div>
-          <div id="lb-section"><h3>Leaderboard</h3><div id="lb-rows"></div></div>
-          <button type="button" id="rbtn">Play Again</button>
+          <div id="lb-section"><h3>Ranking</h3><div id="lb-rows"></div></div>
+          <button type="button" id="rbtn">Jogar de novo</button>
+        </div>
+      </div>
+      <div id="hold-panel">
+        <div class="panel-lbl">Reserva</div>
+        <div id="hold-slot">
+          <div id="hold-mini"></div>
+          <div id="hold-avail" style="color:#34d399;">vazio</div>
         </div>
       </div>
     </div>
     <div id="pieces-row"></div>
     <div id="actions">
-      <button type="button" class="act-btn" id="undo-btn" disabled>Undo (0)</button>
-      <button type="button" class="act-btn" id="hold-piece-btn">Hold piece</button>
+      <button type="button" class="act-btn" id="undo-btn" disabled>Desfazer (0)</button>
+      <button type="button" class="act-btn" id="hold-piece-btn">Reservar peça</button>
     </div>
-    <div id="hint">Drag to place · Piece snaps to grid · Bombs clear 3×3</div>
+    <div id="hint">Arraste para colocar · Encaixa na grelha · Bombas limpam 3×3</div>
   </div>
   <script>
 const ROWS = 8,
@@ -473,7 +484,7 @@ function renderHold() {
   mini.innerHTML = '';
   slot.className = '';
   if (!holdPiece) {
-    avail.textContent = 'empty';
+    avail.textContent = 'vazio';
     avail.style.color = '#4b5563';
     slot.style.borderStyle = 'dashed';
     slot.style.borderColor = '#2a2a50';
@@ -482,10 +493,10 @@ function renderHold() {
   slot.classList.add('has-piece');
   if (holdUsed) {
     slot.classList.add('used-hold');
-    avail.textContent = 'used';
+    avail.textContent = 'usado';
     avail.style.color = '#6b7280';
   } else {
-    avail.textContent = 'ready';
+    avail.textContent = 'pronto';
     avail.style.color = '#34d399';
   }
   const { maxC, maxR } = getPieceBox(holdPiece);
@@ -557,7 +568,9 @@ function renderPieces() {
       slot.appendChild(mini);
       const lbl = document.createElement('div');
       lbl.style.cssText = 'font-size:10px;color:#6b7280;margin-top:3px;';
-      lbl.textContent = p.bomb ? 'Bomb' : p.c.length + ' block' + (p.c.length > 1 ? 's' : '');
+      lbl.textContent = p.bomb
+        ? 'Bomba'
+        : p.c.length + ' ' + (p.c.length > 1 ? 'blocos' : 'bloco');
       slot.appendChild(lbl);
       slot.addEventListener('mousedown', (e) => startDrag(e, i));
       slot.addEventListener(
@@ -665,7 +678,7 @@ function showComboBadge(c) {
   b.style.display = 'block';
   if (c >= 5) {
     b.style.background = '#f59e0b';
-    b.textContent = 'MEGA COMBO x' + c;
+    b.textContent = 'COMBO MEGA x' + c;
   } else if (c >= 3) {
     b.style.background = '#8b5cf6';
     b.textContent = 'SUPER COMBO x' + c;
@@ -686,7 +699,7 @@ function updateDiffBar() {
   document.getElementById('diff-fill').style.width = prog * 100 + '%';
   document.getElementById('lvd').textContent = level;
   const remaining = linesPerLevel - levelLines;
-  document.getElementById('diff-next').textContent = remaining > 0 ? remaining + ' lines' : 'MAX';
+  document.getElementById('diff-next').textContent = remaining > 0 ? remaining + ' linhas' : 'MÁX';
 }
 
 function checkLevelUp(linesCleared) {
@@ -757,7 +770,7 @@ function updateScore() {
 }
 function updateUndo() {
   const btn = document.getElementById('undo-btn');
-  btn.textContent = 'Undo (' + undoStack.length + ')';
+  btn.textContent = 'Desfazer (' + undoStack.length + ')';
   btn.disabled = undoStack.length === 0;
 }
 
@@ -798,11 +811,11 @@ function showGameOver() {
   const sl = document.getElementById('stats-list');
   sl.innerHTML = '';
   [
-    { l: 'Final score', v: score },
-    { l: 'Level reached', v: level },
-    { l: 'Best combo', v: 'x' + bestCombo },
-    { l: 'Lines cleared', v: totalLines },
-    { l: 'Pieces placed', v: totalPlaced },
+    { l: 'Pontuação final', v: score },
+    { l: 'Nível alcançado', v: level },
+    { l: 'Melhor combo', v: 'x' + bestCombo },
+    { l: 'Linhas limpas', v: totalLines },
+    { l: 'Peças colocadas', v: totalPlaced },
   ].forEach(({ l, v }) => {
     const row = document.createElement('div');
     row.className = 'stat-row';
@@ -814,7 +827,7 @@ function showGameOver() {
   leaderboard.forEach((s, i) => {
     const row = document.createElement('div');
     row.className = 'lb-row';
-    row.innerHTML = `<span>${i === 0 ? 'Champion' : '#' + (i + 1)}</span><span>${s}</span>`;
+    row.innerHTML = `<span>${i === 0 ? 'Campeão' : '#' + (i + 1)}</span><span>${s}</span>`;
     lbr.appendChild(row);
   });
   document.getElementById('go').classList.add('show');
