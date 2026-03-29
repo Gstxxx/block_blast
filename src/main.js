@@ -100,6 +100,7 @@ let particles = [];
 let animFrame = null;
 let snapR = null,
   snapC = null;
+let lastDragPoint = null;
 
 const pcanvas = document.getElementById('pcanvas');
 const pctx = pcanvas.getContext('2d');
@@ -250,16 +251,26 @@ function getPieceBox(p) {
   return { maxC: Math.max(...p.c.map(([x]) => x)), maxR: Math.max(...p.c.map(([, y]) => y)) };
 }
 
-function renderBoard(ghostCells = [], opts = {}) {
+function renderBoard(ghostSpec = null, opts = {}) {
   if (!opts.fromMoveGhost) applyResponsiveCellSize();
+  const cells = ghostSpec?.cells ?? [];
+  const valid = ghostSpec?.valid ?? true;
   const el = document.getElementById('board');
   el.innerHTML = '';
   for (let r = 0; r < ROWS; r++)
     for (let c = 0; c < COLS; c++) {
       const d = document.createElement('div');
       const col = board[r][c];
-      const isGhost = ghostCells.some(([gr, gc]) => gr === r && gc === c) && !col;
-      d.className = 'cell' + (col ? ' filled' : '') + (isGhost ? ' ghost-snap' : '');
+      const inGhost = cells.some(([gr, gc]) => gr === r && gc === c);
+      let ghostClass = '';
+      if (dragging && inGhost) {
+        if (col) {
+          if (!valid) ghostClass = ' ghost-invalid-overlap';
+        } else {
+          ghostClass = valid ? ' ghost-preview' : ' ghost-preview-invalid';
+        }
+      }
+      d.className = 'cell' + (col ? ' filled' : '') + ghostClass;
       if (col) {
         if (col === '#ff6b35') {
           d.classList.add('bomb-cell');
@@ -268,7 +279,7 @@ function renderBoard(ghostCells = [], opts = {}) {
           ic.textContent = '💣';
           d.appendChild(ic);
         } else d.style.background = col;
-      } else if (isGhost && dragging) {
+      } else if (inGhost && dragging && !col && valid) {
         d.style.background = dragging.piece.col;
       }
       d.dataset.r = r;
@@ -335,6 +346,47 @@ function renderNext() {
   });
 }
 
+function buildPieceMini(p, slotW) {
+  const { maxC, maxR } = getPieceBox(p);
+  const dim = Math.max(maxC, maxR) + 1;
+  const cs = Math.max(8, Math.min(maxC <= 2 && maxR <= 2 ? 20 : maxC <= 3 && maxR <= 3 ? 15 : 11, Math.floor((slotW - 12) / dim)));
+  const mini = document.createElement('div');
+  mini.className = 'pmini';
+  mini.style.cssText = `grid-template-columns:repeat(${maxC + 1},${cs}px);grid-template-rows:repeat(${maxR + 1},${cs}px);gap:3px;`;
+  for (let r2 = 0; r2 <= maxR; r2++)
+    for (let c2 = 0; c2 <= maxC; c2++) {
+      const mc = document.createElement('div');
+      mc.className = 'pm-cell';
+      mc.style.cssText = `width:${cs}px;height:${cs}px;`;
+      const filled = p.c.some(([cc, rr]) => cc === c2 && rr === r2);
+      mc.style.background = filled ? p.col : 'transparent';
+      if (filled) mc.style.boxShadow = 'inset 0 1px 2px rgba(255,255,255,0.18)';
+      if (p.bomb && filled) {
+        mc.style.background = '#ff6b35';
+        mc.textContent = '💣';
+        mc.style.fontSize = '11px';
+        mc.style.display = 'flex';
+        mc.style.alignItems = 'center';
+        mc.style.justifyContent = 'center';
+      }
+      mini.appendChild(mc);
+    }
+  return mini;
+}
+
+function createDragFloat(p) {
+  const wrap = document.createElement('div');
+  wrap.id = 'drag-float';
+  const slotW = Math.min(96, Math.max(72, Math.floor(window.innerWidth * 0.26)));
+  wrap.appendChild(buildPieceMini(p, slotW));
+  document.body.appendChild(wrap);
+  return wrap;
+}
+
+function removeDragFloat(el) {
+  if (el && el.parentNode) el.remove();
+}
+
 function renderPieces() {
   const row = document.getElementById('pieces-row');
   row.innerHTML = '';
@@ -343,31 +395,7 @@ function renderPieces() {
     const slot = document.createElement('div');
     slot.className = 'pslot' + (p === null ? ' used' : '');
     if (p) {
-      const { maxC, maxR } = getPieceBox(p);
-      const dim = Math.max(maxC, maxR) + 1;
-      const cs = Math.max(8, Math.min(maxC <= 2 && maxR <= 2 ? 20 : maxC <= 3 && maxR <= 3 ? 15 : 11, Math.floor((slotW - 12) / dim)));
-      const mini = document.createElement('div');
-      mini.className = 'pmini';
-      mini.style.cssText = `grid-template-columns:repeat(${maxC + 1},${cs}px);grid-template-rows:repeat(${maxR + 1},${cs}px);gap:3px;`;
-      for (let r2 = 0; r2 <= maxR; r2++)
-        for (let c2 = 0; c2 <= maxC; c2++) {
-          const mc = document.createElement('div');
-          mc.className = 'pm-cell';
-          mc.style.cssText = `width:${cs}px;height:${cs}px;`;
-          const filled = p.c.some(([cc, rr]) => cc === c2 && rr === r2);
-          mc.style.background = filled ? p.col : 'transparent';
-          if (filled) mc.style.boxShadow = 'inset 0 1px 2px rgba(255,255,255,0.18)';
-          if (p.bomb && filled) {
-            mc.style.background = '#ff6b35';
-            mc.textContent = '💣';
-            mc.style.fontSize = '11px';
-            mc.style.display = 'flex';
-            mc.style.alignItems = 'center';
-            mc.style.justifyContent = 'center';
-          }
-          mini.appendChild(mc);
-        }
-      slot.appendChild(mini);
+      slot.appendChild(buildPieceMini(p, slotW));
       const lbl = document.createElement('div');
       lbl.style.cssText = 'font-size:10px;color:#6b7280;margin-top:3px;';
       lbl.textContent = p.bomb
@@ -400,10 +428,12 @@ function swapHold() {
 function startDrag(e, idx) {
   if (pieces[idx] === null) return;
   e.preventDefault();
-  dragging = { idx, piece: pieces[idx] };
+  dragging = { idx, piece: pieces[idx], floatEl: createDragFloat(pieces[idx]) };
   snapR = null;
   snapC = null;
   document.querySelectorAll('.pslot')[idx]?.classList.add('drag-src');
+  const p0 = getClientPoint(e);
+  if (Number.isFinite(p0.x) && Number.isFinite(p0.y)) lastDragPoint = p0;
   updateDragPreview(e);
 }
 
@@ -429,6 +459,12 @@ function getClientPoint(e) {
   return { x: t.clientX, y: t.clientY };
 }
 
+function fingerOrLast(e) {
+  const p = getClientPoint(e);
+  if (Number.isFinite(p.x) && Number.isFinite(p.y)) return p;
+  return lastDragPoint;
+}
+
 function canPlace(p, r, c) {
   return p.c.every(([dc, dr]) => {
     const br = r + dr,
@@ -436,17 +472,32 @@ function canPlace(p, r, c) {
     return br >= 0 && br < ROWS && bc >= 0 && bc < COLS && !board[br][bc];
   });
 }
-function getGhostCells(p, r, c) {
-  if (!p || !canPlace(p, r, c)) return [];
-  return p.c.map(([dc, dr]) => [r + dr, c + dc]);
+
+/** Matches endDrag: bomb only needs in-bounds; blocks need empty cells. */
+function placementValid(p, r, c) {
+  if (!p) return false;
+  if (p.bomb) return r >= 0 && r < ROWS && c >= 0 && c < COLS;
+  return canPlace(p, r, c);
+}
+
+function getGhostSpec(p, r, c) {
+  if (!p) return { cells: [], valid: true };
+  const cells = p.c.map(([dc, dr]) => [r + dr, c + dc]);
+  return { cells, valid: placementValid(p, r, c) };
 }
 
 function updateDragPreview(e) {
-  const finger = getClientPoint(e);
+  const finger = fingerOrLast(e);
+  if (!finger) return;
+  lastDragPoint = finger;
+  if (dragging.floatEl) {
+    dragging.floatEl.style.left = finger.x + 'px';
+    dragging.floatEl.style.top = finger.y + 'px';
+  }
   const { r, c } = getBoardSnap(finger.x, finger.y);
   snapR = r;
   snapC = c;
-  renderBoard(getGhostCells(dragging.piece, r, c), { fromMoveGhost: true });
+  renderBoard(getGhostSpec(dragging.piece, r, c), { fromMoveGhost: true });
 }
 
 function getCellEl(r, c) {
@@ -638,7 +689,17 @@ function showGameOver() {
 function endDrag(e) {
   if (!dragging) return;
   document.querySelectorAll('.pslot').forEach((s) => s.classList.remove('drag-src'));
-  const finger = getClientPoint(e);
+  removeDragFloat(dragging.floatEl);
+  dragging.floatEl = null;
+  const finger = fingerOrLast(e);
+  if (!finger) {
+    dragging = null;
+    snapR = null;
+    snapC = null;
+    lastDragPoint = null;
+    renderBoard();
+    return;
+  }
   const { r, c } = getBoardSnap(finger.x, finger.y);
   const canDrop = dragging.piece.bomb ? r >= 0 && r < ROWS && c >= 0 && c < COLS : canPlace(dragging.piece, r, c);
   if (canDrop) {
@@ -700,9 +761,15 @@ function endDrag(e) {
   dragging = null;
   snapR = null;
   snapC = null;
+  lastDragPoint = null;
 }
 
 function restart() {
+  if (dragging?.floatEl) removeDragFloat(dragging.floatEl);
+  dragging = null;
+  snapR = null;
+  snapC = null;
+  lastDragPoint = null;
   score = 0;
   combo = 0;
   bestCombo = 0;
@@ -752,6 +819,9 @@ document.addEventListener('mouseup', (e) => {
 document.addEventListener('touchend', (e) => {
   if (dragging) endDrag(e);
 });
+document.addEventListener('touchcancel', (e) => {
+  if (dragging) endDrag(e);
+});
 
 document.getElementById('hold-slot').addEventListener('click', swapHold);
 document.getElementById('hold-piece-btn').addEventListener('click', swapHold);
@@ -762,9 +832,9 @@ let layoutTimer = null;
 function onLayoutChange() {
   clearTimeout(layoutTimer);
   layoutTimer = setTimeout(() => {
-    const ghostCells =
-      dragging && snapR != null && snapC != null ? getGhostCells(dragging.piece, snapR, snapC) : [];
-    renderBoard(ghostCells);
+    const ghostSpec =
+      dragging && snapR != null && snapC != null ? getGhostSpec(dragging.piece, snapR, snapC) : null;
+    renderBoard(ghostSpec);
     renderPieces();
     renderHold();
     renderNext();
