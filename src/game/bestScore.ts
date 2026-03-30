@@ -1,4 +1,4 @@
-const KEY = 'block_blast_high_score_v1';
+const KEY = 'octogrid_high_score_v1';
 
 export function readStoredBest(): number {
   if (typeof localStorage === 'undefined') return 0;
