@@ -29,7 +29,14 @@ import {
   predictLineClearAfterPlacement,
 } from '../game/pieceUtils.js';
 import { readStoredBest, syncBestFromScore } from '../game/bestScore.js';
-import type { GameState, GhostSpec, LayoutMetrics, ParticleLoopAPI, Piece } from '../game/types.js';
+import type {
+  DraggingState,
+  GameState,
+  GhostSpec,
+  LayoutMetrics,
+  ParticleLoopAPI,
+  Piece,
+} from '../game/types.js';
 import type { LineClearPreview } from '../game/pieceUtils.js';
 
 function rndShape(g: GameState): Piece {
@@ -113,6 +120,25 @@ function readCssCellSize(gw: HTMLElement): number {
   const v = getComputedStyle(gw).getPropertyValue('--cell-size').trim();
   const n = parseFloat(v);
   return Number.isFinite(n) ? n : 32;
+}
+
+function normalizedFinger(
+  finger: { x: number; y: number },
+  grab: Pick<DraggingState, 'grabDx' | 'grabDy'>
+) {
+  return { x: finger.x - grab.grabDx, y: finger.y - grab.grabDy };
+}
+
+/** Centro do elemento do slot/hold vs dedo — dedo virtual = finger - offset */
+function measureGrabOffset(
+  finger: { x: number; y: number },
+  el: Element | null | undefined
+): { grabDx: number; grabDy: number } {
+  if (!el) return { grabDx: 0, grabDy: 0 };
+  const r = el.getBoundingClientRect();
+  const cx = r.left + r.width / 2;
+  const cy = r.top + r.height / 2;
+  return { grabDx: finger.x - cx, grabDy: finger.y - cy };
 }
 
 function getClientPoint(e: MouseEvent | TouchEvent): { x: number; y: number } {
@@ -436,9 +462,10 @@ export function useBlockBlastGame() {
     }
   }, [bump]);
 
-  const getPlacementPoint = (finger: { x: number; y: number }) => ({
-    x: finger.x,
-    y: finger.y - PLACEMENT_OFFSET_Y,
+  /** Só o preview flutuante — afasta do dedo para não tapar a peça. */
+  const placementPointFloat = (nf: { x: number; y: number }) => ({
+    x: nf.x,
+    y: nf.y - PLACEMENT_OFFSET_Y,
   });
 
   const getBoardRaw = useCallback(
@@ -496,10 +523,10 @@ export function useBlockBlastGame() {
         return;
       }
 
-      const place = getPlacementPoint(finger);
+      const nf = normalizedFinger(finger, drag);
       syncLayoutMetrics();
       const { cellPx, gapPx } = layoutRef.current;
-      const anchor = getPlacementAnchorSnapPoint(place, drag.piece, cellPx, gapPx);
+      const anchor = getPlacementAnchorSnapPoint(nf, drag.piece, cellPx, gapPx);
       const raw = getBoardRaw(anchor.x, anchor.y);
       const r0 = Math.max(0, Math.min(ROWS - 1, Math.floor(raw.r)));
       const c0 = Math.max(0, Math.min(COLS - 1, Math.floor(raw.c)));
@@ -622,12 +649,13 @@ export function useBlockBlastGame() {
       if (!finger) return;
       g.lastDragPoint = finger;
       syncLayoutMetrics();
-      const place = getPlacementPoint(finger);
+      const nf = normalizedFinger(finger, g.dragging);
+      const placeFloat = placementPointFloat(nf);
       const { cellPx, gapPx } = layoutRef.current;
       const { dx, dy } = getDragFloatCentroidOffsetPx(g.dragging.piece, cellPx, gapPx);
-      g.floatX = place.x - dx;
-      g.floatY = place.y - dy;
-      const anchor = getPlacementAnchorSnapPoint(place, g.dragging.piece, cellPx, gapPx);
+      g.floatX = placeFloat.x - dx;
+      g.floatY = placeFloat.y - dy;
+      const anchor = getPlacementAnchorSnapPoint(nf, g.dragging.piece, cellPx, gapPx);
       const raw = getBoardRaw(anchor.x, anchor.y);
       g.snapR = Math.max(0, Math.min(ROWS - 1, Math.floor(raw.r)));
       g.snapC = Math.max(0, Math.min(COLS - 1, Math.floor(raw.c)));
@@ -642,11 +670,14 @@ export function useBlockBlastGame() {
       if (g.pieces[idx] === null) return;
       native.preventDefault();
       const piece = g.pieces[idx]!;
-      g.dragging = { fromHold: false, idx, piece };
       g.snapR = null;
       g.snapC = null;
       const p0 = getClientPoint(native);
       if (Number.isFinite(p0.x) && Number.isFinite(p0.y)) g.lastDragPoint = p0;
+      const slotEl = document.querySelectorAll('.pslot')[idx] as HTMLElement | undefined;
+      const mini = slotEl?.querySelector('.pmini');
+      const grab = measureGrabOffset(p0, mini ?? slotEl ?? null);
+      g.dragging = { fromHold: false, idx, piece, grabDx: grab.grabDx, grabDy: grab.grabDy };
       queueMicrotask(() => {
         document.querySelectorAll('.pslot')[idx]?.classList.add('drag-src');
       });
@@ -663,12 +694,16 @@ export function useBlockBlastGame() {
       if (!target || !(target instanceof Element) || !target.closest('#hold-slot')) return;
       native.preventDefault();
       native.stopPropagation();
-      g.dragging = { fromHold: true, piece: g.holdPiece, idx: -1 };
       g.snapR = null;
       g.snapC = null;
       holdSlotRef.current?.classList.add('drag-src-hold');
       const p0 = getClientPoint(native);
       if (Number.isFinite(p0.x) && Number.isFinite(p0.y)) g.lastDragPoint = p0;
+      const holdRoot = holdSlotRef.current;
+      const holdInner = holdRoot?.querySelector('#hold-mini');
+      const grab = measureGrabOffset(p0, holdInner ?? holdRoot);
+      const hp = g.holdPiece!;
+      g.dragging = { fromHold: true, piece: hp, idx: -1, grabDx: grab.grabDx, grabDy: grab.grabDy };
       updateDragPreview(native);
     },
     [updateDragPreview]

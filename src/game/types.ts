@@ -19,6 +19,9 @@ export interface DraggingState {
   fromHold: boolean;
   idx: number;
   piece: Piece;
+  /** clientX/Y do dedo menos o centro do slot/hold no down — normaliza onde cada um segura a peça */
+  grabDx: number;
+  grabDy: number;
 }
 
 export interface GhostSpec {
