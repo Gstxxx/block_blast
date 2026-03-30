@@ -529,7 +529,7 @@ export function useBlockBlastGame() {
               const bc = c + dc;
               if (br >= 0 && br < ROWS && bc >= 0 && bc < COLS) g.board[br]![bc!] = null;
             }
-          g.score += 15;
+          g.score += scaleScore(15);
           syncLayoutMetrics();
           particleApiRef.current?.spawnParticles(
             layoutRef.current,
@@ -549,7 +549,7 @@ export function useBlockBlastGame() {
             g.board[r]![bc] = null;
             cells.push([r, bc]);
           }
-          g.score += 14;
+          g.score += scaleScore(14);
           syncLayoutMetrics();
           particleApiRef.current?.spawnParticles(layoutRef.current, cells);
         } else if (drag.piece.clearCol) {
@@ -558,14 +558,14 @@ export function useBlockBlastGame() {
             g.board[br]![c] = null;
             cells.push([br, c]);
           }
-          g.score += 14;
+          g.score += scaleScore(14);
           syncLayoutMetrics();
           particleApiRef.current?.spawnParticles(layoutRef.current, cells);
         } else {
           drag.piece.c.forEach(([dc, dr]) => {
             g.board[r + dr]![c + dc] = drag.piece.col;
           });
-          g.score += drag.piece.c.length;
+          g.score += scaleScore(drag.piece.c.length);
         }
         g.totalPlaced++;
         syncLayoutMetrics();
