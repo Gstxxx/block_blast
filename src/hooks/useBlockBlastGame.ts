@@ -21,7 +21,10 @@ import {
   canPlace,
   cloneBoard,
   clonePieces,
+  findNearestValidPlacement,
+  getDragFloatCentroidOffsetPx,
   getGhostSpec,
+  getPlacementAnchorSnapPoint,
   initBoard,
   predictLineClearAfterPlacement,
 } from '../game/pieceUtils.js';
@@ -450,14 +453,6 @@ export function useBlockBlastGame() {
     [syncLayoutMetrics]
   );
 
-  const getBoardSnap = useCallback(
-    (cx: number, cy: number) => {
-      const { r, c } = getBoardRaw(cx, cy);
-      return { r: Math.floor(r), c: Math.floor(c) };
-    },
-    [getBoardRaw]
-  );
-
   const fingerOrLast = (e: MouseEvent | TouchEvent, g: GameState) => {
     const p = getClientPoint(e);
     if (Number.isFinite(p.x) && Number.isFinite(p.y)) return p;
@@ -502,11 +497,11 @@ export function useBlockBlastGame() {
       }
 
       const place = getPlacementPoint(finger);
-      const { r, c } = getBoardSnap(place.x, place.y);
-      const canDrop =
-        drag.piece.bomb || drag.piece.clearRow || drag.piece.clearCol
-          ? r >= 0 && r < ROWS && c >= 0 && c < COLS
-          : canPlace(g.board, drag.piece, r, c);
+      syncLayoutMetrics();
+      const { cellPx, gapPx } = layoutRef.current;
+      const anchor = getPlacementAnchorSnapPoint(place, drag.piece, cellPx, gapPx);
+      const raw = getBoardRaw(anchor.x, anchor.y);
+      const nearest = findNearestValidPlacement(g.board, drag.piece, raw.r, raw.c);
 
       if (drag.fromHold && fingerInHoldRect(finger.x, finger.y)) {
         g.snapR = null;
@@ -516,7 +511,8 @@ export function useBlockBlastGame() {
         return;
       }
 
-      if (canDrop) {
+      if (nearest) {
+        const { r, c } = nearest;
         pushUndo();
         const placedCells: [number, number][] =
           drag.piece.bomb || drag.piece.clearRow || drag.piece.clearCol
@@ -607,7 +603,7 @@ export function useBlockBlastGame() {
       bump,
       clearLines,
       fingerInHoldRect,
-      getBoardSnap,
+      getBoardRaw,
       checkGameOver,
       pushUndo,
       syncLayoutMetrics,
@@ -622,15 +618,25 @@ export function useBlockBlastGame() {
       const finger = fingerOrLast(e, g);
       if (!finger) return;
       g.lastDragPoint = finger;
+      syncLayoutMetrics();
       const place = getPlacementPoint(finger);
-      g.floatX = place.x;
-      g.floatY = place.y;
-      const { r, c } = getBoardSnap(place.x, place.y);
-      g.snapR = r;
-      g.snapC = c;
+      const { cellPx, gapPx } = layoutRef.current;
+      const { dx, dy } = getDragFloatCentroidOffsetPx(g.dragging.piece, cellPx, gapPx);
+      g.floatX = place.x - dx;
+      g.floatY = place.y - dy;
+      const anchor = getPlacementAnchorSnapPoint(place, g.dragging.piece, cellPx, gapPx);
+      const raw = getBoardRaw(anchor.x, anchor.y);
+      const nearest = findNearestValidPlacement(g.board, g.dragging.piece, raw.r, raw.c);
+      if (nearest) {
+        g.snapR = nearest.r;
+        g.snapC = nearest.c;
+      } else {
+        g.snapR = Math.max(0, Math.min(ROWS - 1, Math.floor(raw.r)));
+        g.snapC = Math.max(0, Math.min(COLS - 1, Math.floor(raw.c)));
+      }
       bump();
     },
-    [bump, getBoardSnap]
+    [bump, getBoardRaw, syncLayoutMetrics]
   );
 
   const startDrag = useCallback(
