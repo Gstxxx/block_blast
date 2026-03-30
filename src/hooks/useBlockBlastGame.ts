@@ -33,6 +33,7 @@ import {
   canPlace,
   cloneBoard,
   clonePieces,
+  computeSnapFromPieceMajority,
   getDragFloatCentroidOffsetPx,
   getGhostSpec,
   getPlacementAnchorSnapPoint,
@@ -537,6 +538,13 @@ export function useBlockBlastGame() {
     return x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
   }, []);
 
+  const boardContainsClientPoint = useCallback((x: number, y: number) => {
+    const boardEl = boardRef.current;
+    if (!boardEl) return false;
+    const r = boardEl.getBoundingClientRect();
+    return x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
+  }, []);
+
   const endDrag = useCallback(
     (e: MouseEvent | TouchEvent) => {
       const g = gameRef.current;
@@ -571,14 +579,30 @@ export function useBlockBlastGame() {
         return;
       }
 
+      if (!boardContainsClientPoint(finger.x, finger.y)) {
+        g.snapR = null;
+        g.snapC = null;
+        g.lastDragPoint = null;
+        bump();
+        return;
+      }
+
       const nf = normalizedFinger(finger, drag);
       syncLayoutMetrics();
       const { cellPx, gapPx } = layoutRef.current;
       const place = placementPoint(nf);
       const anchor = getPlacementAnchorSnapPoint(place, drag.piece, cellPx, gapPx);
-      const raw = getBoardRaw(anchor.x, anchor.y);
-      const r0 = Math.max(0, Math.min(ROWS - 1, Math.floor(raw.r)));
-      const c0 = Math.max(0, Math.min(COLS - 1, Math.floor(raw.c)));
+      const boardFracAt = (cx: number, cy: number) => {
+        const raw = getBoardRaw(cx, cy);
+        return { r: raw.r, c: raw.c };
+      };
+      const { r: r0, c: c0 } = computeSnapFromPieceMajority(
+        drag.piece,
+        anchor,
+        cellPx,
+        gapPx,
+        boardFracAt,
+      );
       const canDrop = placementValid(g.board, drag.piece, r0, c0);
 
       if (drag.fromHold && fingerInHoldRect(finger.x, finger.y)) {
@@ -687,6 +711,7 @@ export function useBlockBlastGame() {
       bump,
       clearLines,
       fingerInHoldRect,
+      boardContainsClientPoint,
       getBoardRaw,
       checkGameOver,
       pushUndo,
@@ -713,18 +738,33 @@ export function useBlockBlastGame() {
       );
       g.floatX = place.x - dx;
       g.floatY = place.y - dy;
-      const anchor = getPlacementAnchorSnapPoint(
-        place,
-        g.dragging.piece,
-        cellPx,
-        gapPx,
-      );
-      const raw = getBoardRaw(anchor.x, anchor.y);
-      g.snapR = Math.max(0, Math.min(ROWS - 1, Math.floor(raw.r)));
-      g.snapC = Math.max(0, Math.min(COLS - 1, Math.floor(raw.c)));
+      if (boardContainsClientPoint(finger.x, finger.y)) {
+        const anchor = getPlacementAnchorSnapPoint(
+          place,
+          g.dragging.piece,
+          cellPx,
+          gapPx,
+        );
+        const boardFracAt = (cx: number, cy: number) => {
+          const raw = getBoardRaw(cx, cy);
+          return { r: raw.r, c: raw.c };
+        };
+        const { r, c } = computeSnapFromPieceMajority(
+          g.dragging.piece,
+          anchor,
+          cellPx,
+          gapPx,
+          boardFracAt,
+        );
+        g.snapR = r;
+        g.snapC = c;
+      } else {
+        g.snapR = null;
+        g.snapC = null;
+      }
       bump();
     },
-    [bump, getBoardRaw, syncLayoutMetrics],
+    [bump, boardContainsClientPoint, getBoardRaw, syncLayoutMetrics],
   );
 
   const startDrag = useCallback(

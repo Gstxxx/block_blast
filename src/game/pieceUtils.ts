@@ -87,6 +87,58 @@ export function getPlacementAnchorSnapPoint(
   };
 }
 
+/**
+ * Snap (r,c) a partir da média das posições fracionárias no tabuleiro dos centros de cada bloco
+ * da peça — o ghost só “muda de casa” quando o centro de massa cruza, não pelo canto (0,0).
+ */
+export function computeSnapFromPieceMajority(
+  p: Piece,
+  anchorTopLeftScreen: { x: number; y: number },
+  cellPx: number,
+  gapPx: number,
+  boardFracAt: (cx: number, cy: number) => { r: number; c: number }
+): { r: number; c: number } {
+  if (p.bomb || p.clearRow || p.clearCol) {
+    const raw = boardFracAt(anchorTopLeftScreen.x, anchorTopLeftScreen.y);
+    return {
+      r: Math.max(0, Math.min(ROWS - 1, Math.floor(raw.r))),
+      c: Math.max(0, Math.min(COLS - 1, Math.floor(raw.c))),
+    };
+  }
+  if (p.c.length === 0) {
+    const raw = boardFracAt(anchorTopLeftScreen.x, anchorTopLeftScreen.y);
+    return {
+      r: Math.max(0, Math.min(ROWS - 1, Math.floor(raw.r))),
+      c: Math.max(0, Math.min(COLS - 1, Math.floor(raw.c))),
+    };
+  }
+  const CELL = cellPx + gapPx;
+  let sumR = 0;
+  let sumC = 0;
+  let sumCc = 0;
+  let sumRr = 0;
+  const n = p.c.length;
+  for (const [cc, rr] of p.c) {
+    const cx = anchorTopLeftScreen.x + cc * CELL + cellPx / 2;
+    const cy = anchorTopLeftScreen.y + rr * CELL + cellPx / 2;
+    const raw = boardFracAt(cx, cy);
+    sumR += raw.r;
+    sumC += raw.c;
+    sumCc += cc;
+    sumRr += rr;
+  }
+  const meanR = sumR / n;
+  const meanC = sumC / n;
+  const avgCc = sumCc / n;
+  const avgRr = sumRr / n;
+  const r = Math.round(meanR - avgRr - 0.5);
+  const c = Math.round(meanC - avgCc - 0.5);
+  return {
+    r: Math.max(0, Math.min(ROWS - 1, r)),
+    c: Math.max(0, Math.min(COLS - 1, c)),
+  };
+}
+
 export function getGhostSpec(board: Board, p: Piece | null, r: number, c: number): GhostSpec {
   if (!p) return { cells: [], valid: true };
   if (p.clearRow) {
