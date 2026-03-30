@@ -1,41 +1,5 @@
+import { COOLORS_PRESETS } from './coolorsPalettes.js';
 import type { Piece } from './types.js';
-
-/** HSL → #rrggbb (h 0–360, s/l 0–100) */
-export function hslToHex(h: number, s: number, l: number): string {
-  h = ((h % 360) + 360) % 360;
-  s = Math.max(0, Math.min(100, s)) / 100;
-  l = Math.max(0, Math.min(100, l)) / 100;
-  const c = (1 - Math.abs(2 * l - 1)) * s;
-  const hh = h / 60;
-  const x = c * (1 - Math.abs((hh % 2) - 1));
-  const m = l - c / 2;
-  let rp = 0,
-    gp = 0,
-    bp = 0;
-  if (hh < 1) {
-    rp = c;
-    gp = x;
-  } else if (hh < 2) {
-    rp = x;
-    gp = c;
-  } else if (hh < 3) {
-    gp = c;
-    bp = x;
-  } else if (hh < 4) {
-    gp = x;
-    bp = c;
-  } else if (hh < 5) {
-    rp = x;
-    bp = c;
-  } else {
-    rp = c;
-    bp = x;
-  }
-  const r = Math.round(255 * (rp + m));
-  const g = Math.round(255 * (gp + m));
-  const b = Math.round(255 * (bp + m));
-  return '#' + [r, g, b].map((v) => v.toString(16).padStart(2, '0')).join('');
-}
 
 export function seededRandom(seed: number): () => number {
   let s = seed >>> 0;
@@ -43,6 +7,66 @@ export function seededRandom(seed: number): () => number {
     s = (Math.imul(s, 1664525) + 1013904223) >>> 0;
     return s / 4294967296;
   };
+}
+
+function hexToRgb(hex: string): { r: number; g: number; b: number } {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
+  if (!m) return { r: 24, g: 24, b: 40 };
+  const n = parseInt(m[1]!, 16);
+  return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
+}
+
+function rgbToHex(r: number, g: number, b: number): string {
+  const c = (v: number) => Math.max(0, Math.min(255, Math.round(v)));
+  return '#' + [c(r), c(g), c(b)].map((v) => v.toString(16).padStart(2, '0')).join('');
+}
+
+function luminance(rgb: { r: number; g: number; b: number }): number {
+  return 0.299 * rgb.r + 0.587 * rgb.g + 0.114 * rgb.b;
+}
+
+function avgRgb(colors: readonly string[]): { r: number; g: number; b: number } {
+  let r = 0,
+    g = 0,
+    b = 0;
+  for (const c of colors) {
+    const rgb = hexToRgb(c);
+    r += rgb.r;
+    g += rgb.g;
+    b += rgb.b;
+  }
+  const n = Math.max(1, colors.length);
+  return { r: r / n, g: g / n, b: b / n };
+}
+
+function boardSurfaceFromPalette(colors: readonly string[]): { boardBg: string; boardBorder: string; cellEmpty: string } {
+  const avg = avgRgb(colors);
+  const boardBg = rgbToHex(avg.r * 0.14, avg.g * 0.14, avg.b * 0.14);
+  const boardBorder = rgbToHex(avg.r * 0.32 + 8, avg.g * 0.32 + 8, avg.b * 0.32 + 12);
+  let darkest = colors[0]!;
+  let minL = Infinity;
+  for (const c of colors) {
+    const rgb = hexToRgb(c);
+    const L = luminance(rgb);
+    if (L < minL) {
+      minL = L;
+      darkest = c;
+    }
+  }
+  const d = hexToRgb(darkest);
+  const cellEmpty = rgbToHex(d.r * 0.22, d.g * 0.22, d.b * 0.22);
+  return { boardBg, boardBorder, cellEmpty };
+}
+
+function shuffleCopy<T>(arr: readonly T[], rng: () => number): T[] {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    const t = a[i]!;
+    a[i] = a[j]!;
+    a[j] = t;
+  }
+  return a;
 }
 
 export interface BoardThemeVars {
@@ -68,41 +92,28 @@ export function pieceShapeKey(p: Pick<Piece, 'c' | 'bomb' | 'clearRow' | 'clearC
 }
 
 /**
- * Paleta única por nível e por partida (runSeed).
- * Cores das peças derivam do mesmo matiz base do tabuleiro para harmonia visual.
+ * Paleta por nível/partida: sorteia um conjunto estilo Coolors trending e deriva tabuleiro + peças.
+ * @see https://coolors.co/palettes/trending
  */
 export function getLevelPalette(level: number, runSeed: number): LevelPalette {
   const mix = (runSeed ^ Math.imul(level, 0x9e3779b9) ^ Math.imul(level + 1, 0x517cc1b7)) >>> 0;
   const rng = seededRandom(mix);
+  // XOR pode ser negativo em JS; % com índice negativo quebra o array. Forçar uint32 antes do módulo.
+  const paletteIndex = ((mix ^ (runSeed >>> 0)) >>> 0) % COOLORS_PRESETS.length;
+  const preset = COOLORS_PRESETS[paletteIndex]!;
+  const { boardBg, boardBorder, cellEmpty } = boardSurfaceFromPalette(preset);
 
-  const hueBase = rng() * 360;
-  const satBoard = 16 + rng() * 18;
-  const lightBoard = 8 + rng() * 7;
-  const boardBg = hslToHex(hueBase, satBoard, lightBoard);
-
-  const borderHue = (hueBase + 28 + rng() * 48) % 360;
-  const boardBorder = hslToHex(borderHue, 22 + rng() * 22, 18 + rng() * 14);
-
-  const cellHue = (hueBase + 160 + rng() * 40) % 360;
-  const cellEmpty = hslToHex(cellHue, 28 + rng() * 25, 4 + rng() * 6);
-
-  const n = 7;
+  const order = shuffleCopy(preset, rng);
   const pieceColors: string[] = [];
-  const hueSpread = 22;
-  for (let i = 0; i < n; i++) {
-    const h = (hueBase + (i - (n - 1) / 2) * hueSpread + rng() * 10) % 360;
-    const s = 54 + rng() * 16;
-    const l = 50 + rng() * 12;
-    pieceColors.push(hslToHex(h, s, l));
+  for (let i = 0; i < 7; i++) pieceColors.push(order[i % order.length]!);
+
+  const bombColor = order[Math.floor(rng() * order.length)]!;
+  let clearRowColor = order[Math.floor(rng() * order.length)]!;
+  let clearColColor = order[Math.floor(rng() * order.length)]!;
+  let guard = 0;
+  while (clearRowColor === clearColColor && guard++ < 12) {
+    clearColColor = order[Math.floor(rng() * order.length)]!;
   }
-
-  const bombHue = (hueBase + 165 + rng() * 25) % 360;
-  const bombColor = hslToHex(bombHue, 70 + rng() * 18, 56 + rng() * 8);
-
-  const clearRowHue = (hueBase + 42 + rng() * 18) % 360;
-  const clearRowColor = hslToHex(clearRowHue, 66 + rng() * 14, 58 + rng() * 8);
-  const clearColHue = (hueBase + 210 + rng() * 22) % 360;
-  const clearColColor = hslToHex(clearColHue, 66 + rng() * 14, 58 + rng() * 8);
 
   return { cellEmpty, boardBg, boardBorder, pieceColors, bombColor, clearRowColor, clearColColor };
 }
@@ -120,8 +131,13 @@ export function colorizePiece(p: Piece, palette: LevelPalette, rng: () => number
     p.col = palette.clearColColor;
     return p;
   }
-  const idx = Math.floor(rng() * palette.pieceColors.length);
-  p.col = palette.pieceColors[idx]!;
+  const n = palette.pieceColors.length;
+  if (n === 0) {
+    p.col = '#e94560';
+    return p;
+  }
+  const idx = Math.floor(rng() * n);
+  p.col = palette.pieceColors[idx] ?? '#e94560';
   return p;
 }
 

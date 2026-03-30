@@ -27,7 +27,8 @@ function hexToRgba(hex: string, alpha: number): string {
  * Uma textura + cor da paleta (gradiente semitransparente em multiply sobre o cinza glossy).
  */
 export function pieceCellStyle(hex: string): CSSProperties {
-  const h = hex.startsWith('#') ? hex : `#${hex}`;
+  const safe = typeof hex === 'string' && /^#?[0-9a-f]{6}$/i.test(hex.trim()) ? hex.trim() : '#888888';
+  const h = safe.startsWith('#') ? safe : `#${safe}`;
   const overlay = hexToRgba(h, 0.74);
   return {
     backgroundImage: `linear-gradient(${overlay}, ${overlay}), url(${PIECE_SQUARE_URL})`,
