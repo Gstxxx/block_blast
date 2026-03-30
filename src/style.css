@@ -323,6 +323,12 @@ canvas#flash-canvas{z-index:49;}
   position:fixed;left:0;top:0;pointer-events:none;z-index:100;
   transform:translate(-50%,-50%);
   filter:drop-shadow(0 3px 10px rgba(0,0,0,0.45));
+  border-radius:10px;
+}
+#drag-float.drag-float-invalid{
+  outline:3px solid rgba(239,68,68,0.95);
+  outline-offset:2px;
+  filter:drop-shadow(0 3px 10px rgba(0,0,0,0.45));
 }
 body.combo-rgb-global .cell.filled,
 body.combo-rgb-global .pm-filled,
@@ -367,8 +373,8 @@ body.combo-rgb-global .hold-mini-fill{
   filter:brightness(0.88) saturate(1.15);
 }
 .cell.ghost-invalid-overlap{
-  box-shadow:inset 0 0 0 3px #facc15,inset 0 0 0 6px rgba(0,0,0,0.4)!important;
-  filter:brightness(0.92);
+  box-shadow:inset 0 0 0 3px #ef4444,inset 0 0 0 6px rgba(0,0,0,0.45)!important;
+  filter:brightness(0.9) saturate(1.05);
 }
 .cell.line-clear-hint{
   box-shadow:inset 0 0 0 2px rgba(251,191,36,0.92),inset 0 0 18px rgba(251,191,36,0.22);

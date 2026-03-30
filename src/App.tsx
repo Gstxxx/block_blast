@@ -326,7 +326,11 @@ export default function App() {
         createPortal(
           <div
             id="drag-float"
-            className={rgbParty ? 'drag-float-rgb' : undefined}
+            className={
+              [rgbParty ? 'drag-float-rgb' : '', ghostSpec && !ghostSpec.valid ? 'drag-float-invalid' : '']
+                .filter(Boolean)
+                .join(' ') || undefined
+            }
             style={{
               left: g.floatX + 'px',
               top: g.floatY + 'px',

@@ -87,42 +87,6 @@ export function getPlacementAnchorSnapPoint(
   };
 }
 
-function isBetterSnapCandidate(
-  a: { r: number; c: number; d: number },
-  b: { r: number; c: number; d: number }
-): boolean {
-  if (a.d < b.d) return true;
-  if (a.d > b.d) return false;
-  return a.r < b.r || (a.r === b.r && a.c < b.c);
-}
-
-/**
- * Entre todas as âncoras (r,c) válidas no tabuleiro, escolhe a mais próxima da intenção
- * (anchorRFrac / anchorCFrac em coords de célula, vindos de getBoardRaw no canto da peça).
- * Peças normais: distância ao canto (r,c). Bomb/linha/coluna: distância ao centro da célula.
- */
-export function findNearestValidPlacement(
-  board: Board,
-  p: Piece,
-  anchorRFrac: number,
-  anchorCFrac: number
-): { r: number; c: number } | null {
-  const useCenter = p.bomb || p.clearRow || p.clearCol;
-  let best: { r: number; c: number; d: number } | null = null;
-
-  for (let r = 0; r < ROWS; r++) {
-    for (let c = 0; c < COLS; c++) {
-      if (!placementValid(board, p, r, c)) continue;
-      const dr = useCenter ? r + 0.5 - anchorRFrac : r - anchorRFrac;
-      const dc = useCenter ? c + 0.5 - anchorCFrac : c - anchorCFrac;
-      const d = dr * dr + dc * dc;
-      const cand = { r, c, d };
-      if (!best || isBetterSnapCandidate(cand, best)) best = cand;
-    }
-  }
-  return best ? { r: best.r, c: best.c } : null;
-}
-
 export function getGhostSpec(board: Board, p: Piece | null, r: number, c: number): GhostSpec {
   if (!p) return { cells: [], valid: true };
   if (p.clearRow) {

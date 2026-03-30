@@ -21,11 +21,11 @@ import {
   canPlace,
   cloneBoard,
   clonePieces,
-  findNearestValidPlacement,
   getDragFloatCentroidOffsetPx,
   getGhostSpec,
   getPlacementAnchorSnapPoint,
   initBoard,
+  placementValid,
   predictLineClearAfterPlacement,
 } from '../game/pieceUtils.js';
 import { readStoredBest, syncBestFromScore } from '../game/bestScore.js';
@@ -501,7 +501,9 @@ export function useBlockBlastGame() {
       const { cellPx, gapPx } = layoutRef.current;
       const anchor = getPlacementAnchorSnapPoint(place, drag.piece, cellPx, gapPx);
       const raw = getBoardRaw(anchor.x, anchor.y);
-      const nearest = findNearestValidPlacement(g.board, drag.piece, raw.r, raw.c);
+      const r0 = Math.max(0, Math.min(ROWS - 1, Math.floor(raw.r)));
+      const c0 = Math.max(0, Math.min(COLS - 1, Math.floor(raw.c)));
+      const canDrop = placementValid(g.board, drag.piece, r0, c0);
 
       if (drag.fromHold && fingerInHoldRect(finger.x, finger.y)) {
         g.snapR = null;
@@ -511,8 +513,9 @@ export function useBlockBlastGame() {
         return;
       }
 
-      if (nearest) {
-        const { r, c } = nearest;
+      if (canDrop) {
+        const r = r0;
+        const c = c0;
         pushUndo();
         const placedCells: [number, number][] =
           drag.piece.bomb || drag.piece.clearRow || drag.piece.clearCol
@@ -626,14 +629,8 @@ export function useBlockBlastGame() {
       g.floatY = place.y - dy;
       const anchor = getPlacementAnchorSnapPoint(place, g.dragging.piece, cellPx, gapPx);
       const raw = getBoardRaw(anchor.x, anchor.y);
-      const nearest = findNearestValidPlacement(g.board, g.dragging.piece, raw.r, raw.c);
-      if (nearest) {
-        g.snapR = nearest.r;
-        g.snapC = nearest.c;
-      } else {
-        g.snapR = Math.max(0, Math.min(ROWS - 1, Math.floor(raw.r)));
-        g.snapC = Math.max(0, Math.min(COLS - 1, Math.floor(raw.c)));
-      }
+      g.snapR = Math.max(0, Math.min(ROWS - 1, Math.floor(raw.r)));
+      g.snapC = Math.max(0, Math.min(COLS - 1, Math.floor(raw.c)));
       bump();
     },
     [bump, getBoardRaw, syncLayoutMetrics]
