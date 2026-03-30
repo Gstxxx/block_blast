@@ -20,8 +20,14 @@ function applyResponsiveCellSize() {
     gap = 3;
   let w = wrap.clientWidth;
   if (w < 48) w = Math.max(document.documentElement.clientWidth - 24, 200);
-  const cell = Math.floor((w - 2 * pad - 7 * gap) / 8);
-  const cellClamped = Math.max(26, Math.min(40, cell));
+  const cellW = Math.floor((w - 2 * pad - 7 * gap) / 8);
+  let cell = cellW;
+  const h = wrap.clientHeight;
+  if (h > 64) {
+    const cellH = Math.floor((h - 2 * pad - 7 * gap) / 8);
+    cell = Math.min(cellW, cellH);
+  }
+  const cellClamped = Math.max(22, Math.min(40, cell));
   gw.style.setProperty('--cell-size', cellClamped + 'px');
 }
 
