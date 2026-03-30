@@ -1,6 +1,15 @@
 import { useCallback, useEffect, useLayoutEffect, useReducer, useRef } from 'react';
-import { BOMB, CLEAR_COL, CLEAR_ROW, COLS, PLACEMENT_OFFSET_Y, ROWS, SHAPES } from '../game/constants.js';
-import { sndBomb, sndClear, sndCombo, sndLevel, sndOver, sndPlace } from '../game/audio.js';
+import {
+  BOMB,
+  CLEAR_COL,
+  CLEAR_ROW,
+  COLS,
+  PLACEMENT_OFFSET_Y,
+  ROWS,
+  SHAPES,
+  scaleScore,
+} from '../game/constants.js';
+import { sndCombo8bit, sndNewGame, sndOver, sndPlace, sndScore } from '../game/audio.js';
 import {
   applyLevelPaletteToDom,
   colorizePiece,
@@ -16,6 +25,7 @@ import {
   initBoard,
   predictLineClearAfterPlacement,
 } from '../game/pieceUtils.js';
+import { readStoredBest, syncBestFromScore } from '../game/bestScore.js';
 import type { GameState, GhostSpec, LayoutMetrics, ParticleLoopAPI, Piece } from '../game/types.js';
 import type { LineClearPreview } from '../game/pieceUtils.js';
 
@@ -68,7 +78,7 @@ function createInitialGame(): GameState {
   const g: GameState = {
     board,
     score: 0,
-    best: 0,
+    best: readStoredBest(),
     pieces: [null, null, null],
     nextQueue,
     combo: 0,
@@ -254,12 +264,12 @@ export function useBlockBlastGame() {
   );
 
   const showGridTopCombo = useCallback(
-    (c: number) => {
+    (c: number, scoreThisClear?: number) => {
       const g = gameRef.current;
       const id = `${Date.now()}-${Math.random()}`;
       g.gridToasts.push({ id, kind: 'combo', combo: c });
+      sndCombo8bit(c, scoreThisClear ?? 0);
       bump();
-      sndCombo(c);
       setTimeout(() => {
         const el = document.querySelector(`[data-toast-id="${id}"]`);
         el?.classList.add('fade-out');
@@ -283,7 +293,7 @@ export function useBlockBlastGame() {
       if (g.levelLines >= 10) {
         g.levelLines -= 10;
         g.level++;
-        sndLevel();
+        sndScore();
         const gw = gwRef.current;
         const b = boardRef.current;
         if (gw && b)
@@ -327,7 +337,7 @@ export function useBlockBlastGame() {
           bump();
         });
         particleApiRef.current?.spawnParticles(layoutRef.current, cells);
-        sndClear(cleared);
+        sndScore();
         if (cleared >= 2) doShake();
         g.comboNoClearStreak = 0;
         g.combo++;
@@ -337,8 +347,9 @@ export function useBlockBlastGame() {
         const lineBonus = cleared * cleared * 10 * ((1 + g.level * 0.1) | 0);
         const comboAfter = g.combo;
         const pts = Math.floor(lineBonus * comboAfter);
-        g.score += pts;
-        if (g.score > g.best) g.best = g.score;
+        const ptsThisClear = scaleScore(pts);
+        g.score += ptsThisClear;
+        syncBestFromScore(g);
         const basePer = Math.floor(lineBonus / cleared);
         const rem = lineBonus - basePer * cleared;
         const stagger = Math.min(150, Math.max(85, 680 / cleared));
@@ -356,7 +367,7 @@ export function useBlockBlastGame() {
           );
         }
         if (comboAfter > 1) {
-          setTimeout(() => showGridTopCombo(comboAfter), cleared * stagger + 120);
+          setTimeout(() => showGridTopCombo(comboAfter, ptsThisClear), cleared * stagger + 120);
         }
         syncLayoutMetrics();
         bump();
@@ -375,7 +386,7 @@ export function useBlockBlastGame() {
 
   const updateScore = useCallback(() => {
     const g = gameRef.current;
-    if (g.score > g.best) g.best = g.score;
+    syncBestFromScore(g);
     bump();
   }, [bump]);
 
@@ -412,6 +423,7 @@ export function useBlockBlastGame() {
     const avail = g.pieces.filter((p): p is Piece => p !== null);
     const ok = avail.some(pieceCanPlace) || (g.holdPiece && pieceCanPlace(g.holdPiece));
     if (!ok) {
+      syncBestFromScore(g);
       g.leaderboard.push(g.score);
       g.leaderboard.sort((a, b) => b - a);
       g.leaderboard = g.leaderboard.slice(0, 5);
@@ -518,7 +530,6 @@ export function useBlockBlastGame() {
               if (br >= 0 && br < ROWS && bc >= 0 && bc < COLS) g.board[br]![bc!] = null;
             }
           g.score += 15;
-          sndBomb();
           syncLayoutMetrics();
           particleApiRef.current?.spawnParticles(
             layoutRef.current,
@@ -539,7 +550,6 @@ export function useBlockBlastGame() {
             cells.push([r, bc]);
           }
           g.score += 14;
-          sndClear(Math.min(4, COLS));
           syncLayoutMetrics();
           particleApiRef.current?.spawnParticles(layoutRef.current, cells);
         } else if (drag.piece.clearCol) {
@@ -549,7 +559,6 @@ export function useBlockBlastGame() {
             cells.push([br, c]);
           }
           g.score += 14;
-          sndClear(Math.min(4, ROWS));
           syncLayoutMetrics();
           particleApiRef.current?.spawnParticles(layoutRef.current, cells);
         } else {
@@ -557,7 +566,6 @@ export function useBlockBlastGame() {
             g.board[r + dr]![c + dc] = drag.piece.col;
           });
           g.score += drag.piece.c.length;
-          sndPlace();
         }
         g.totalPlaced++;
         syncLayoutMetrics();
@@ -574,7 +582,14 @@ export function useBlockBlastGame() {
         } else {
           g.pieces[drag.idx] = null;
         }
-        clearLines(r, c);
+        const hadLineClear = clearLines(r, c);
+        if (!hadLineClear) {
+          if (drag.piece.bomb || drag.piece.clearRow || drag.piece.clearCol) {
+            sndScore();
+          } else {
+            sndPlace();
+          }
+        }
         if (g.pieces.every((p) => p === null)) {
           popPieces(g);
         }
@@ -669,6 +684,7 @@ export function useBlockBlastGame() {
     }
     gameRef.current = createInitialGame();
     gameRef.current.gridToasts = [];
+    sndNewGame();
     const gw = gwRef.current;
     const b = boardRef.current;
     if (gw && b)

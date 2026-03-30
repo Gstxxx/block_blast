@@ -50,7 +50,7 @@ export function PieceMini({ piece, slotW, boardMode, cellPx = 32, gapPx = 3 }: P
         return (
           <div
             key={`${r2}-${c2}`}
-            className="pm-cell"
+            className={filled ? 'pm-cell pm-filled' : 'pm-cell'}
             style={{
               width: `${cs}px`,
               height: `${cs}px`,
@@ -102,6 +102,7 @@ export function NextMini({ piece }: { piece: Piece | null }) {
         return (
           <div
             key={`${r2}-${c2}`}
+            className={filled ? 'next-mini-fill' : undefined}
             style={{
               width: `${cs}px`,
               height: `${cs}px`,
@@ -136,6 +137,7 @@ export function HoldMini({ piece }: { piece: Piece | null }) {
         return (
           <div
             key={`${r2}-${c2}`}
+            className={filled ? 'hold-mini-fill' : undefined}
             style={{
               width: `${cs}px`,
               height: `${cs}px`,

@@ -48,3 +48,14 @@ export const CLEAR_ROW: Piece = { c: [[0, 0]], col: '#38bdf8', sz: 0, clearRow: 
 
 /** Limpa uma coluna inteira (eixo vertical do tabuleiro). */
 export const CLEAR_COL: Piece = { c: [[0, 0]], col: '#a78bfa', sz: 0, clearCol: true };
+
+/**
+ * Multiplicador global aplicado a toda pontuação (peças, linhas, combos, especiais).
+ * Ajuste apenas aqui; não há controlo na UI.
+ */
+export const SCORE_MULTIPLIER = 1;
+
+export function scaleScore(raw: number): number {
+  const v = raw * SCORE_MULTIPLIER;
+  return Number.isFinite(v) ? Math.max(0, Math.floor(v)) : 0;
+}

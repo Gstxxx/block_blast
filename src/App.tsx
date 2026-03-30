@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useState } from 'react';
+import type { CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
 import { useBlockBlastGame } from './hooks/useBlockBlastGame.js';
 import { pieceCellStyle } from './game/assets.js';
@@ -46,6 +47,13 @@ export default function App() {
   const remaining = linesPerLevel - g.levelLines;
   const comboColor = g.combo >= 5 ? '#f59e0b' : g.combo >= 3 ? '#a78bfa' : '#fbbf24';
   const comboDisplay = g.combo === 0 ? 1 : g.combo;
+  const comboFx = g.combo > 0 ? Math.min(g.combo / 10, 1) : 0;
+  const rgbParty = g.combo >= 10;
+
+  useEffect(() => {
+    document.body.classList.toggle('combo-rgb-global', rgbParty);
+    return () => document.body.classList.remove('combo-rgb-global');
+  }, [rgbParty]);
 
   const undoN = g.undoStack.length;
   const undoTip = undoN ? `Desfazer (${undoN} restante${undoN > 1 ? 's' : ''})` : 'Nada para desfazer';
@@ -57,7 +65,16 @@ export default function App() {
     (lineClearPreview.rows.length > 0 || lineClearPreview.cols.length > 0);
 
   return (
-    <div id="gw" ref={gwRef}>
+    <div
+      id="gw"
+      ref={gwRef}
+      style={
+        {
+          '--combo-fx': String(comboFx),
+        } as CSSProperties
+      }
+    >
+      <div className="combo-screen-fx" aria-hidden />
       <button
         type="button"
         id="undo-btn"
@@ -69,56 +86,60 @@ export default function App() {
       >
         <span aria-hidden="true">↩</span>
       </button>
-      <div id="hdr">
-        <div className="sb">
-          <div className="sl">Pontos</div>
-          <div className="sv" id="sd">
-            {g.score}
+      <header id="hud-minimal" aria-label="Estatísticas">
+        <div className="hud-top-row">
+          <div className="hud-corner-left">
+            <div className="hud-left-cluster">
+              <div className="hud-mini-block">
+                <span className="hud-lbl">Nível</span>
+                <span className="hud-val-compact" id="lvd">
+                  {g.level}
+                </span>
+              </div>
+              <div className="hud-mini-block">
+                <span className="hud-lbl">Linhas</span>
+                <span className="hud-val-compact" id="ld">
+                  {g.totalLines}
+                </span>
+              </div>
+            </div>
           </div>
-        </div>
-        <div className="sb">
-          <div className="sl">Recorde</div>
-          <div className="sv" id="bd">
-            {g.best}
+          <div className="hud-score-center">
+            <div className="hud-best-row" title="Máxima">
+              <span className="hud-crown" aria-hidden>
+                👑
+              </span>
+              <span className="hud-best-val" id="bd">
+                {g.best}
+              </span>
+            </div>
+            <div className="hud-current-stack">
+              <span className="hud-val-current" id="sd">
+                {g.score}
+              </span>
+            </div>
           </div>
+          <div className="hud-corner-spacer" aria-hidden />
         </div>
-        <div className="sb sb-compact">
-          <div className="sl">Combo</div>
-          <div className="sv" id="cd" style={{ color: comboColor }}>
+        <div className="hud-sub">
+          <span id="cd" style={{ color: comboColor }}>
             ×{comboDisplay}
+          </span>
+          <span className="hud-sub-sep" aria-hidden>
+            ·
+          </span>
+          <span id="diff-next">{remaining > 0 ? `${remaining}→nível` : 'máx'}</span>
+        </div>
+        <div id="diff-bar">
+          <div id="diff-track">
+            <div id="diff-fill" style={{ width: `${diffProg * 100}%` }} />
           </div>
         </div>
-        <div className="sb sb-compact">
-          <div className="sl">Linhas</div>
-          <div className="sv" id="ld" style={{ color: '#34d399' }}>
-            {g.totalLines}
-          </div>
-        </div>
-        <div className="sb sb-compact">
-          <div className="sl">Nível</div>
-          <div className="sv" id="lvd" style={{ color: '#60a5fa' }}>
-            {g.level}
-          </div>
-        </div>
-      </div>
-      <div id="diff-bar">
-        <div className="panel-lbl" id="diff-label">
-          Progresso do nível
-        </div>
-        <div id="diff-track">
-          <div id="diff-fill" style={{ width: `${diffProg * 100}%` }} />
-        </div>
-        <div style={{ fontSize: '10px', color: '#6b7280' }} id="diff-next">
-          {remaining > 0 ? `${remaining} linhas` : 'MÁX'}
-        </div>
-      </div>
-      <div id="combo-bar">
-        <div id="combo-badge" style={{ display: 'none' }} />
-      </div>
+      </header>
       <div id="mid">
         <div id="top-rail">
           <div id="next-panel">
-            <div className="panel-lbl">Próximas</div>
+            <div className="panel-lbl panel-lbl-min">Próximas</div>
             <div id="next-slots">
               {g.nextQueue.slice(0, 3).map((p, i) => (
                 <div key={i} className="next-slot">
@@ -128,7 +149,7 @@ export default function App() {
             </div>
           </div>
           <div id="hold-panel">
-            <div className="panel-lbl">Reserva</div>
+            <div className="panel-lbl panel-lbl-min">Reserva</div>
             <div
               id="hold-slot"
               ref={holdSlotRef}
@@ -305,6 +326,7 @@ export default function App() {
         createPortal(
           <div
             id="drag-float"
+            className={rgbParty ? 'drag-float-rgb' : undefined}
             style={{
               left: g.floatX + 'px',
               top: g.floatY + 'px',
