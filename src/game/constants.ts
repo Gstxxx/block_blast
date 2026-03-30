@@ -2,7 +2,8 @@ import type { Piece } from "./types.js";
 
 export const ROWS = 8;
 export const COLS = 8;
-export const PLACEMENT_OFFSET_Y = 5;
+/** 0 = preview e ghost usam o mesmo eixo Y (sem desvio entre os dois). */
+export const PLACEMENT_OFFSET_Y = 0;
 
 export const SHAPES: Piece[] = [
   {
@@ -218,7 +219,7 @@ export const CLEAR_COL: Piece = {
  * Multiplicador global aplicado a toda pontuação (peças, linhas, combos, especiais).
  * Ajuste apenas aqui; não há controlo na UI.
  */
-export const SCORE_MULTIPLIER = 4;
+export const SCORE_MULTIPLIER = 20;
 
 export function scaleScore(raw: number): number {
   const v = raw * SCORE_MULTIPLIER;

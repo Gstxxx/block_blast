@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useLayoutEffect, useReducer, useRef } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useReducer,
+  useRef,
+} from "react";
 import {
   BOMB,
   CLEAR_COL,
@@ -8,15 +14,21 @@ import {
   ROWS,
   SHAPES,
   scaleScore,
-} from '../game/constants.js';
-import { sndCombo8bit, sndNewGame, sndOver, sndPlace, sndScore } from '../game/audio.js';
+} from "../game/constants.js";
+import {
+  sndCombo8bit,
+  sndNewGame,
+  sndOver,
+  sndPlace,
+  sndScore,
+} from "../game/audio.js";
 import {
   applyLevelPaletteToDom,
   colorizePiece,
   getLevelPalette,
   pieceShapeKey,
-} from '../game/theme.js';
-import { createParticleLoop, flashLines } from '../game/canvasFx.js';
+} from "../game/theme.js";
+import { createParticleLoop, flashLines } from "../game/canvasFx.js";
 import {
   canPlace,
   cloneBoard,
@@ -27,8 +39,8 @@ import {
   initBoard,
   placementValid,
   predictLineClearAfterPlacement,
-} from '../game/pieceUtils.js';
-import { readStoredBest, syncBestFromScore } from '../game/bestScore.js';
+} from "../game/pieceUtils.js";
+import { readStoredBest, syncBestFromScore } from "../game/bestScore.js";
 import type {
   DraggingState,
   GameState,
@@ -36,8 +48,8 @@ import type {
   LayoutMetrics,
   ParticleLoopAPI,
   Piece,
-} from '../game/types.js';
-import type { LineClearPreview } from '../game/pieceUtils.js';
+} from "../game/types.js";
+import type { LineClearPreview } from "../game/pieceUtils.js";
 
 function rndShape(g: GameState): Piece {
   const pool = g.level >= 3 ? SHAPES : SHAPES.filter((s) => s.sz < 3);
@@ -53,7 +65,9 @@ function rndShape(g: GameState): Piece {
           ? (JSON.parse(JSON.stringify(CLEAR_ROW)) as Piece)
           : (JSON.parse(JSON.stringify(CLEAR_COL)) as Piece);
   } else {
-    raw = JSON.parse(JSON.stringify(pool[Math.floor(Math.random() * pool.length)]!)) as Piece;
+    raw = JSON.parse(
+      JSON.stringify(pool[Math.floor(Math.random() * pool.length)]!),
+    ) as Piece;
   }
   return colorizePiece(raw, palette, Math.random);
 }
@@ -117,14 +131,14 @@ function createInitialGame(): GameState {
 }
 
 function readCssCellSize(gw: HTMLElement): number {
-  const v = getComputedStyle(gw).getPropertyValue('--cell-size').trim();
+  const v = getComputedStyle(gw).getPropertyValue("--cell-size").trim();
   const n = parseFloat(v);
   return Number.isFinite(n) ? n : 32;
 }
 
 function normalizedFinger(
   finger: { x: number; y: number },
-  grab: Pick<DraggingState, 'grabDx' | 'grabDy'>
+  grab: Pick<DraggingState, "grabDx" | "grabDy">,
 ) {
   return { x: finger.x - grab.grabDx, y: finger.y - grab.grabDy };
 }
@@ -132,7 +146,7 @@ function normalizedFinger(
 /** Centro do elemento do slot/hold vs dedo — dedo virtual = finger - offset */
 function measureGrabOffset(
   finger: { x: number; y: number },
-  el: Element | null | undefined
+  el: Element | null | undefined,
 ): { grabDx: number; grabDy: number } {
   if (!el) return { grabDx: 0, grabDy: 0 };
   const r = el.getBoundingClientRect();
@@ -142,10 +156,10 @@ function measureGrabOffset(
 }
 
 function getClientPoint(e: MouseEvent | TouchEvent): { x: number; y: number } {
-  if ('touches' in e && e.touches[0]) {
+  if ("touches" in e && e.touches[0]) {
     return { x: e.touches[0].clientX, y: e.touches[0].clientY };
   }
-  if ('changedTouches' in e && e.changedTouches[0]) {
+  if ("changedTouches" in e && e.changedTouches[0]) {
     return { x: e.changedTouches[0].clientX, y: e.changedTouches[0].clientY };
   }
   const m = e as MouseEvent;
@@ -155,7 +169,12 @@ function getClientPoint(e: MouseEvent | TouchEvent): { x: number; y: number } {
 export function useBlockBlastGame() {
   const [, bump] = useReducer((x: number) => x + 1, 0);
   const gameRef = useRef<GameState>(createInitialGame());
-  const layoutRef = useRef<LayoutMetrics>({ cellPx: 32, padPx: 8, gapPx: 3, CELL: 35 });
+  const layoutRef = useRef<LayoutMetrics>({
+    cellPx: 32,
+    padPx: 8,
+    gapPx: 3,
+    CELL: 35,
+  });
   const particleApiRef = useRef<ParticleLoopAPI | null>(null);
 
   const gwRef = useRef<HTMLDivElement>(null);
@@ -203,7 +222,7 @@ export function useBlockBlastGame() {
       cell = Math.min(cellW, cellH);
     }
     const cellClamped = Math.max(22, Math.min(40, cell));
-    gw.style.setProperty('--cell-size', cellClamped + 'px');
+    gw.style.setProperty("--cell-size", cellClamped + "px");
   }, []);
 
   const resizeCanvases = useCallback(() => {
@@ -224,7 +243,7 @@ export function useBlockBlastGame() {
   useLayoutEffect(() => {
     const pc = pcanvasRef.current;
     if (!pc) return;
-    const pctx = pc.getContext('2d');
+    const pctx = pc.getContext("2d");
     if (!pctx) return;
     particleApiRef.current = createParticleLoop(pc, pctx);
   }, []);
@@ -253,62 +272,70 @@ export function useBlockBlastGame() {
         bump();
       }, 120);
     };
-    window.addEventListener('resize', onResize);
-    window.addEventListener('orientationchange', onResize);
+    window.addEventListener("resize", onResize);
+    window.addEventListener("orientationchange", onResize);
     const vv = window.visualViewport;
-    if (vv) vv.addEventListener('resize', onResize);
+    if (vv) vv.addEventListener("resize", onResize);
     return () => {
-      window.removeEventListener('resize', onResize);
-      window.removeEventListener('orientationchange', onResize);
-      if (vv) vv.removeEventListener('resize', onResize);
+      window.removeEventListener("resize", onResize);
+      window.removeEventListener("orientationchange", onResize);
+      if (vv) vv.removeEventListener("resize", onResize);
     };
   }, [applyResponsiveCellSize, syncLayoutMetrics, resizeCanvases, bump]);
 
   const doShake = useCallback(() => {
     const gw = gwRef.current;
     if (!gw) return;
-    gw.classList.remove('shake');
+    gw.classList.remove("shake");
     void gw.offsetWidth;
-    gw.classList.add('shake');
-    setTimeout(() => gw.classList.remove('shake'), 400);
+    gw.classList.add("shake");
+    setTimeout(() => gw.classList.remove("shake"), 400);
   }, []);
 
   const showGridTopToast = useCallback(
-    (main: string, sub: string | undefined, opts: { duration?: number } = {}) => {
+    (
+      main: string,
+      sub: string | undefined,
+      opts: { duration?: number } = {},
+    ) => {
       const g = gameRef.current;
       const id = `${Date.now()}-${Math.random()}`;
       const duration = opts.duration ?? 820;
-      g.gridToasts.push({ id, kind: 'line', main, sub });
+      g.gridToasts.push({ id, kind: "line", main, sub });
       bump();
       setTimeout(() => {
         const el = document.querySelector(`[data-toast-id="${id}"]`);
-        el?.classList.add('fade-out');
+        el?.classList.add("fade-out");
         setTimeout(() => {
-          gameRef.current.gridToasts = gameRef.current.gridToasts.filter((t) => t.id !== id);
+          gameRef.current.gridToasts = gameRef.current.gridToasts.filter(
+            (t) => t.id !== id,
+          );
           bump();
         }, 260);
       }, duration);
     },
-    [bump]
+    [bump],
   );
 
   const showGridTopCombo = useCallback(
     (c: number, scoreThisClear?: number) => {
       const g = gameRef.current;
       const id = `${Date.now()}-${Math.random()}`;
-      g.gridToasts.push({ id, kind: 'combo', combo: c });
+      g.gridToasts.push({ id, kind: "combo", combo: c });
       sndCombo8bit(c, scoreThisClear ?? 0);
       bump();
       setTimeout(() => {
         const el = document.querySelector(`[data-toast-id="${id}"]`);
-        el?.classList.add('fade-out');
+        el?.classList.add("fade-out");
         setTimeout(() => {
-          gameRef.current.gridToasts = gameRef.current.gridToasts.filter((t) => t.id !== id);
+          gameRef.current.gridToasts = gameRef.current.gridToasts.filter(
+            (t) => t.id !== id,
+          );
           bump();
         }, 260);
       }, 1200);
     },
-    [bump]
+    [bump],
   );
 
   const updateDiffBar = useCallback(() => {
@@ -330,7 +357,7 @@ export function useBlockBlastGame() {
       }
       updateDiffBar();
     },
-    [updateDiffBar]
+    [updateDiffBar],
   );
 
   const clearLines = useCallback(
@@ -352,15 +379,15 @@ export function useBlockBlastGame() {
 
       if (toRemove.size > 0) {
         const cells: [number, number][] = [...toRemove].map((k) => {
-          const [r, c] = k.split(',').map(Number);
+          const [r, c] = k.split(",").map(Number);
           return [r!, c!] as [number, number];
         });
         const fcanvas = fcanvasRef.current;
-        const fctx = fcanvas?.getContext('2d') ?? null;
+        const fctx = fcanvas?.getContext("2d") ?? null;
         syncLayoutMetrics();
         flashLines(fcanvas, fctx, layoutRef.current, cells, () => {
           toRemove.forEach((k) => {
-            const [r, c] = k.split(',').map(Number);
+            const [r, c] = k.split(",").map(Number);
             gameRef.current.board[r!]![c!] = null;
           });
           bump();
@@ -388,15 +415,18 @@ export function useBlockBlastGame() {
           setTimeout(
             () =>
               showGridTopToast(
-                '+' + partPts,
-                'Linha ' + (i + 1) + '/' + cleared + ' · ×' + comboAfter,
-                { duration: 760 }
+                "+" + partPts,
+                "Linha " + (i + 1) + "/" + cleared + " · ×" + comboAfter,
+                { duration: 760 },
               ),
-            i * stagger
+            i * stagger,
           );
         }
         if (comboAfter > 1) {
-          setTimeout(() => showGridTopCombo(comboAfter, ptsThisClear), cleared * stagger + 120);
+          setTimeout(
+            () => showGridTopCombo(comboAfter, ptsThisClear),
+            cleared * stagger + 120,
+          );
         }
         syncLayoutMetrics();
         bump();
@@ -410,7 +440,14 @@ export function useBlockBlastGame() {
       bump();
       return false;
     },
-    [bump, checkLevelUp, doShake, showGridTopToast, showGridTopCombo, syncLayoutMetrics]
+    [
+      bump,
+      checkLevelUp,
+      doShake,
+      showGridTopToast,
+      showGridTopCombo,
+      syncLayoutMetrics,
+    ],
   );
 
   const updateScore = useCallback(() => {
@@ -429,7 +466,9 @@ export function useBlockBlastGame() {
       board: cloneBoard(g.board),
       score: g.score,
       pieces: clonePieces(g.pieces),
-      holdPiece: g.holdPiece ? JSON.parse(JSON.stringify(g.holdPiece)) as Piece : null,
+      holdPiece: g.holdPiece
+        ? (JSON.parse(JSON.stringify(g.holdPiece)) as Piece)
+        : null,
       combo: g.combo,
       comboNoClearStreak: g.comboNoClearStreak,
       tl: g.totalLines,
@@ -446,11 +485,13 @@ export function useBlockBlastGame() {
       if (!p) return false;
       if (p.bomb || p.clearRow || p.clearCol) return true;
       for (let r = 0; r < ROWS; r++)
-        for (let c = 0; c < COLS; c++) if (canPlace(g.board, p, r, c)) return true;
+        for (let c = 0; c < COLS; c++)
+          if (canPlace(g.board, p, r, c)) return true;
       return false;
     };
     const avail = g.pieces.filter((p): p is Piece => p !== null);
-    const ok = avail.some(pieceCanPlace) || (g.holdPiece && pieceCanPlace(g.holdPiece));
+    const ok =
+      avail.some(pieceCanPlace) || (g.holdPiece && pieceCanPlace(g.holdPiece));
     if (!ok) {
       syncBestFromScore(g);
       g.leaderboard.push(g.score);
@@ -462,8 +503,8 @@ export function useBlockBlastGame() {
     }
   }, [bump]);
 
-  /** Só o preview flutuante — afasta do dedo para não tapar a peça. */
-  const placementPointFloat = (nf: { x: number; y: number }) => ({
+  /** Mesmo ponto para float e ghost — evita desalinhamento entre preview e grade. */
+  const placementPoint = (nf: { x: number; y: number }) => ({
     x: nf.x,
     y: nf.y - PLACEMENT_OFFSET_Y,
   });
@@ -475,9 +516,12 @@ export function useBlockBlastGame() {
       if (!boardEl) return { c: 0, r: 0 };
       const rect = boardEl.getBoundingClientRect();
       const { CELL, padPx } = layoutRef.current;
-      return { c: (cx - rect.left - padPx) / CELL, r: (cy - rect.top - padPx) / CELL };
+      return {
+        c: (cx - rect.left - padPx) / CELL,
+        r: (cy - rect.top - padPx) / CELL,
+      };
     },
-    [syncLayoutMetrics]
+    [syncLayoutMetrics],
   );
 
   const fingerOrLast = (e: MouseEvent | TouchEvent, g: GameState) => {
@@ -498,8 +542,10 @@ export function useBlockBlastGame() {
       const g = gameRef.current;
       if (!g.dragging) return;
       const drag = g.dragging;
-      document.querySelectorAll('.pslot').forEach((s) => s.classList.remove('drag-src'));
-      holdSlotRef.current?.classList.remove('drag-src-hold');
+      document
+        .querySelectorAll(".pslot")
+        .forEach((s) => s.classList.remove("drag-src"));
+      holdSlotRef.current?.classList.remove("drag-src-hold");
 
       g.dragging = null;
       const finger = fingerOrLast(e, g);
@@ -515,7 +561,9 @@ export function useBlockBlastGame() {
         pushUndo();
         const prevHold = g.holdPiece;
         g.holdPiece = JSON.parse(JSON.stringify(drag.piece)) as Piece;
-        g.pieces[drag.idx] = prevHold ? JSON.parse(JSON.stringify(prevHold)) as Piece : rndShape(g);
+        g.pieces[drag.idx] = prevHold
+          ? (JSON.parse(JSON.stringify(prevHold)) as Piece)
+          : rndShape(g);
         g.snapR = null;
         g.snapC = null;
         g.lastDragPoint = null;
@@ -526,7 +574,8 @@ export function useBlockBlastGame() {
       const nf = normalizedFinger(finger, drag);
       syncLayoutMetrics();
       const { cellPx, gapPx } = layoutRef.current;
-      const anchor = getPlacementAnchorSnapPoint(nf, drag.piece, cellPx, gapPx);
+      const place = placementPoint(nf);
+      const anchor = getPlacementAnchorSnapPoint(place, drag.piece, cellPx, gapPx);
       const raw = getBoardRaw(anchor.x, anchor.y);
       const r0 = Math.max(0, Math.min(ROWS - 1, Math.floor(raw.r)));
       const c0 = Math.max(0, Math.min(COLS - 1, Math.floor(raw.c)));
@@ -547,13 +596,16 @@ export function useBlockBlastGame() {
         const placedCells: [number, number][] =
           drag.piece.bomb || drag.piece.clearRow || drag.piece.clearCol
             ? []
-            : drag.piece.c.map(([dc, dr]) => [r + dr, c + dc] as [number, number]);
+            : drag.piece.c.map(
+                ([dc, dr]) => [r + dr, c + dc] as [number, number],
+              );
         if (drag.piece.bomb) {
           for (let dr = -1; dr <= 1; dr++)
             for (let dc = -1; dc <= 1; dc++) {
               const br = r + dr;
               const bc = c + dc;
-              if (br >= 0 && br < ROWS && bc >= 0 && bc < COLS) g.board[br]![bc!] = null;
+              if (br >= 0 && br < ROWS && bc >= 0 && bc < COLS)
+                g.board[br]![bc!] = null;
             }
           g.score += scaleScore(15);
           syncLayoutMetrics();
@@ -567,7 +619,9 @@ export function useBlockBlastGame() {
                 [r, c - 1],
                 [r, c + 1],
               ] as [number, number][]
-            ).filter(([rr, cc]) => rr >= 0 && rr < ROWS && cc >= 0 && cc < COLS)
+            ).filter(
+              ([rr, cc]) => rr >= 0 && rr < ROWS && cc >= 0 && cc < COLS,
+            ),
           );
         } else if (drag.piece.clearRow) {
           const cells: [number, number][] = [];
@@ -638,7 +692,7 @@ export function useBlockBlastGame() {
       pushUndo,
       syncLayoutMetrics,
       updateScore,
-    ]
+    ],
   );
 
   const updateDragPreview = useCallback(
@@ -650,18 +704,27 @@ export function useBlockBlastGame() {
       g.lastDragPoint = finger;
       syncLayoutMetrics();
       const nf = normalizedFinger(finger, g.dragging);
-      const placeFloat = placementPointFloat(nf);
+      const place = placementPoint(nf);
       const { cellPx, gapPx } = layoutRef.current;
-      const { dx, dy } = getDragFloatCentroidOffsetPx(g.dragging.piece, cellPx, gapPx);
-      g.floatX = placeFloat.x - dx;
-      g.floatY = placeFloat.y - dy;
-      const anchor = getPlacementAnchorSnapPoint(nf, g.dragging.piece, cellPx, gapPx);
+      const { dx, dy } = getDragFloatCentroidOffsetPx(
+        g.dragging.piece,
+        cellPx,
+        gapPx,
+      );
+      g.floatX = place.x - dx;
+      g.floatY = place.y - dy;
+      const anchor = getPlacementAnchorSnapPoint(
+        place,
+        g.dragging.piece,
+        cellPx,
+        gapPx,
+      );
       const raw = getBoardRaw(anchor.x, anchor.y);
       g.snapR = Math.max(0, Math.min(ROWS - 1, Math.floor(raw.r)));
       g.snapC = Math.max(0, Math.min(COLS - 1, Math.floor(raw.c)));
       bump();
     },
-    [bump, getBoardRaw, syncLayoutMetrics]
+    [bump, getBoardRaw, syncLayoutMetrics],
   );
 
   const startDrag = useCallback(
@@ -674,16 +737,24 @@ export function useBlockBlastGame() {
       g.snapC = null;
       const p0 = getClientPoint(native);
       if (Number.isFinite(p0.x) && Number.isFinite(p0.y)) g.lastDragPoint = p0;
-      const slotEl = document.querySelectorAll('.pslot')[idx] as HTMLElement | undefined;
-      const mini = slotEl?.querySelector('.pmini');
+      const slotEl = document.querySelectorAll(".pslot")[idx] as
+        | HTMLElement
+        | undefined;
+      const mini = slotEl?.querySelector(".pmini");
       const grab = measureGrabOffset(p0, mini ?? slotEl ?? null);
-      g.dragging = { fromHold: false, idx, piece, grabDx: grab.grabDx, grabDy: grab.grabDy };
+      g.dragging = {
+        fromHold: false,
+        idx,
+        piece,
+        grabDx: grab.grabDx,
+        grabDy: grab.grabDy,
+      };
       queueMicrotask(() => {
-        document.querySelectorAll('.pslot')[idx]?.classList.add('drag-src');
+        document.querySelectorAll(".pslot")[idx]?.classList.add("drag-src");
       });
       updateDragPreview(native);
     },
-    [updateDragPreview]
+    [updateDragPreview],
   );
 
   const startDragFromHold = useCallback(
@@ -691,33 +762,44 @@ export function useBlockBlastGame() {
       const g = gameRef.current;
       if (!g.holdPiece || g.dragging) return;
       const target = native.target as Node | null;
-      if (!target || !(target instanceof Element) || !target.closest('#hold-slot')) return;
+      if (
+        !target ||
+        !(target instanceof Element) ||
+        !target.closest("#hold-slot")
+      )
+        return;
       native.preventDefault();
       native.stopPropagation();
       g.snapR = null;
       g.snapC = null;
-      holdSlotRef.current?.classList.add('drag-src-hold');
+      holdSlotRef.current?.classList.add("drag-src-hold");
       const p0 = getClientPoint(native);
       if (Number.isFinite(p0.x) && Number.isFinite(p0.y)) g.lastDragPoint = p0;
       const holdRoot = holdSlotRef.current;
-      const holdInner = holdRoot?.querySelector('#hold-mini');
+      const holdInner = holdRoot?.querySelector("#hold-mini");
       const grab = measureGrabOffset(p0, holdInner ?? holdRoot);
       const hp = g.holdPiece!;
-      g.dragging = { fromHold: true, piece: hp, idx: -1, grabDx: grab.grabDx, grabDy: grab.grabDy };
+      g.dragging = {
+        fromHold: true,
+        piece: hp,
+        idx: -1,
+        grabDx: grab.grabDx,
+        grabDy: grab.grabDy,
+      };
       updateDragPreview(native);
     },
-    [updateDragPreview]
+    [updateDragPreview],
   );
 
   const restart = useCallback(() => {
     const pcanvas = pcanvasRef.current;
     const fcanvas = fcanvasRef.current;
     if (pcanvas) {
-      const pctx = pcanvas.getContext('2d');
+      const pctx = pcanvas.getContext("2d");
       pctx?.clearRect(0, 0, pcanvas.width, pcanvas.height);
     }
     if (fcanvas) {
-      const fctx = fcanvas.getContext('2d');
+      const fctx = fcanvas.getContext("2d");
       fctx?.clearRect(0, 0, fcanvas.width, fcanvas.height);
     }
     gameRef.current = createInitialGame();
@@ -726,7 +808,11 @@ export function useBlockBlastGame() {
     const gw = gwRef.current;
     const b = boardRef.current;
     if (gw && b)
-      applyLevelPaletteToDom(gw, b, getLevelPalette(gameRef.current.level, gameRef.current.themeSeed));
+      applyLevelPaletteToDom(
+        gw,
+        b,
+        getLevelPalette(gameRef.current.level, gameRef.current.themeSeed),
+      );
     bump();
   }, [bump]);
 
@@ -739,13 +825,19 @@ export function useBlockBlastGame() {
     g.pieces = s.pieces;
     g.combo = s.combo;
     g.comboNoClearStreak = s.comboNoClearStreak ?? 0;
-    g.holdPiece = s.holdPiece !== undefined ? (s.holdPiece ? JSON.parse(JSON.stringify(s.holdPiece)) as Piece : null) : null;
+    g.holdPiece =
+      s.holdPiece !== undefined
+        ? s.holdPiece
+          ? (JSON.parse(JSON.stringify(s.holdPiece)) as Piece)
+          : null
+        : null;
     g.totalLines = s.tl;
     g.level = s.lv;
     g.levelLines = s.ll;
     const gw = gwRef.current;
     const b = boardRef.current;
-    if (gw && b) applyLevelPaletteToDom(gw, b, getLevelPalette(g.level, g.themeSeed));
+    if (gw && b)
+      applyLevelPaletteToDom(gw, b, getLevelPalette(g.level, g.themeSeed));
     updateUndo();
     bump();
   }, [bump, updateUndo]);
@@ -763,17 +855,17 @@ export function useBlockBlastGame() {
     const onUp = (e: MouseEvent | TouchEvent) => {
       if (gameRef.current.dragging) endDrag(e);
     };
-    document.addEventListener('mousemove', onMove);
-    document.addEventListener('touchmove', onTouchMove, { passive: false });
-    document.addEventListener('mouseup', onUp);
-    document.addEventListener('touchend', onUp);
-    document.addEventListener('touchcancel', onUp);
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("touchmove", onTouchMove, { passive: false });
+    document.addEventListener("mouseup", onUp);
+    document.addEventListener("touchend", onUp);
+    document.addEventListener("touchcancel", onUp);
     return () => {
-      document.removeEventListener('mousemove', onMove);
-      document.removeEventListener('touchmove', onTouchMove);
-      document.removeEventListener('mouseup', onUp);
-      document.removeEventListener('touchend', onUp);
-      document.removeEventListener('touchcancel', onUp);
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("touchmove", onTouchMove);
+      document.removeEventListener("mouseup", onUp);
+      document.removeEventListener("touchend", onUp);
+      document.removeEventListener("touchcancel", onUp);
     };
   }, [endDrag, updateDragPreview]);
 
@@ -793,7 +885,12 @@ export function useBlockBlastGame() {
 
   const lineClearPreview: LineClearPreview | null =
     ghostSpec?.valid && g.dragging && g.snapR != null && g.snapC != null
-      ? predictLineClearAfterPlacement(g.board, g.dragging.piece, g.snapR, g.snapC)
+      ? predictLineClearAfterPlacement(
+          g.board,
+          g.dragging.piece,
+          g.snapR,
+          g.snapC,
+        )
       : null;
 
   return {
