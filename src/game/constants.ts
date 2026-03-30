@@ -2,7 +2,7 @@ import type { Piece } from "./types.js";
 
 export const ROWS = 8;
 export const COLS = 8;
-export const PLACEMENT_OFFSET_Y = 200;
+export const PLACEMENT_OFFSET_Y = 50;
 
 export const SHAPES: Piece[] = [
   {
