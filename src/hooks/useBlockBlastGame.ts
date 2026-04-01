@@ -42,6 +42,7 @@ import {
   predictLineClearAfterPlacement,
 } from "../game/pieceUtils.js";
 import { readStoredBest, syncBestFromScore } from "../game/bestScore.js";
+import { readSettings } from "../game/settings.js";
 import type {
   DraggingState,
   GameState,
@@ -170,6 +171,7 @@ function getClientPoint(e: MouseEvent | TouchEvent): { x: number; y: number } {
 export function useBlockBlastGame() {
   const [, bump] = useReducer((x: number) => x + 1, 0);
   const gameRef = useRef<GameState>(createInitialGame());
+  const isPausedRef = useRef(false);
   const layoutRef = useRef<LayoutMetrics>({
     cellPx: 32,
     padPx: 8,
@@ -285,6 +287,7 @@ export function useBlockBlastGame() {
   }, [applyResponsiveCellSize, syncLayoutMetrics, resizeCanvases, bump]);
 
   const doShake = useCallback(() => {
+    if (!readSettings().shakeEnabled) return;
     const gw = gwRef.current;
     if (!gw) return;
     gw.classList.remove("shake");
@@ -767,9 +770,35 @@ export function useBlockBlastGame() {
     [bump, boardContainsClientPoint, getBoardRaw, syncLayoutMetrics],
   );
 
+  const togglePause = useCallback(() => {
+    const g = gameRef.current;
+    if (g.gameOver) return;
+    isPausedRef.current = !isPausedRef.current;
+    if (isPausedRef.current && g.dragging) {
+      document
+        .querySelectorAll(".pslot")
+        .forEach((s) => s.classList.remove("drag-src"));
+      holdSlotRef.current?.classList.remove("drag-src-hold");
+      g.dragging = null;
+      g.snapR = null;
+      g.snapC = null;
+      g.lastDragPoint = null;
+    }
+    bump();
+  }, [bump]);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !gameRef.current.gameOver) togglePause();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [togglePause]);
+
   const startDrag = useCallback(
     (native: MouseEvent | TouchEvent, idx: number) => {
       const g = gameRef.current;
+      if (isPausedRef.current) return;
       if (g.pieces[idx] === null) return;
       native.preventDefault();
       const piece = g.pieces[idx]!;
@@ -800,6 +829,7 @@ export function useBlockBlastGame() {
   const startDragFromHold = useCallback(
     (native: MouseEvent | TouchEvent) => {
       const g = gameRef.current;
+      if (isPausedRef.current) return;
       if (!g.holdPiece || g.dragging) return;
       const target = native.target as Node | null;
       if (
@@ -954,5 +984,7 @@ export function useBlockBlastGame() {
     doUndo,
     endDrag,
     updateDragPreview,
+    paused: isPausedRef.current,
+    togglePause,
   };
 }
