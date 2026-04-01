@@ -3,6 +3,12 @@ const URL_NEW_GAME = '/Audio/jingles_PIZZI00.ogg';
 const URL_GAME_OVER = '/Audio/jingles_NES13.ogg';
 const URL_SCORE = '/Audio/jingles_SAX10.ogg';
 
+let _soundEnabled = true;
+
+export function setSoundEnabled(v: boolean): void {
+  _soundEnabled = v;
+}
+
 const AC: (typeof AudioContext) | undefined =
   typeof window !== 'undefined'
     ? window.AudioContext ||
@@ -23,6 +29,7 @@ function ac(): AudioContext | null {
 }
 
 function playUrl(path: string): void {
+  if (!_soundEnabled) return;
   try {
     const a = new Audio(encodeURI(path));
     a.volume = 0.92;
@@ -53,6 +60,7 @@ export function sndOver(): void {
  * Jingle 8-bit (ondas quadradas) ao surgir combo; pitch sobe com o multiplicador e com a pontuação da jogada.
  */
 export function sndCombo8bit(combo: number, scoreThisClear = 0): void {
+  if (!_soundEnabled) return;
   const a = ac();
   if (!a) return;
   if (a.state === 'suspended') void a.resume();

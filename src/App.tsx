@@ -6,6 +6,9 @@ import { pieceCellStyle } from './game/assets.js';
 import { applyLevelPaletteToDom, getLevelPalette } from './game/theme.js';
 import { COLS, ROWS } from './game/constants.js';
 import { HoldMini, NextMini, PieceMini } from './components/PieceMini.js';
+import { readSettings, saveSettings } from './game/settings.js';
+import type { GameSettings } from './game/settings.js';
+import { setSoundEnabled } from './game/audio.js';
 
 export default function App() {
   const {
@@ -23,7 +26,22 @@ export default function App() {
     startDragFromHold,
     restart,
     doUndo,
+    paused,
+    togglePause,
   } = useBlockBlastGame();
+
+  const [settings, setSettings] = useState<GameSettings>(() => readSettings());
+  const [showSettings, setShowSettings] = useState(false);
+
+  const updateSettings = (partial: Partial<GameSettings>) => {
+    const next = { ...settings, ...partial };
+    setSettings(next);
+    saveSettings(next);
+  };
+
+  useEffect(() => {
+    setSoundEnabled(settings.soundEnabled);
+  }, [settings.soundEnabled]);
 
   const [vw, setVw] = useState(typeof window !== 'undefined' ? window.innerWidth : 400);
   useEffect(() => {
@@ -75,6 +93,16 @@ export default function App() {
       }
     >
       <div className="combo-screen-fx" aria-hidden />
+      <button
+        type="button"
+        className="pause-icon-btn"
+        aria-label={paused ? 'Continuar' : 'Pausar'}
+        title={paused ? 'Continuar' : 'Pausar'}
+        onClick={togglePause}
+        disabled={g.gameOver}
+      >
+        <span aria-hidden="true">{paused ? '▶' : '⏸'}</span>
+      </button>
       <button
         type="button"
         id="undo-btn"
@@ -250,6 +278,66 @@ export default function App() {
             })}
           </div>
           <div id="score-pop-wrap" />
+          {paused && !g.gameOver && (
+            <div className="pause-overlay" role="dialog" aria-modal aria-label="Jogo pausado">
+              <div className="pause-modal">
+                <h2>Pausado</h2>
+                <button type="button" className="pause-btn pause-btn-primary" onClick={togglePause}>
+                  ▶ Continuar
+                </button>
+                <button
+                  type="button"
+                  className="pause-btn"
+                  onClick={() => setShowSettings(true)}
+                >
+                  ⚙ Configurações
+                </button>
+                <button
+                  type="button"
+                  className="pause-btn"
+                  onClick={() => { togglePause(); restart(); }}
+                >
+                  ↺ Novo jogo
+                </button>
+              </div>
+            </div>
+          )}
+          {showSettings && (
+            <div
+              className="settings-overlay"
+              role="dialog"
+              aria-modal
+              aria-label="Configurações"
+              onClick={() => setShowSettings(false)}
+            >
+              <div className="settings-modal" onClick={(e) => e.stopPropagation()}>
+                <h2>Configurações</h2>
+                <label className="setting-row">
+                  <span>Sons</span>
+                  <input
+                    type="checkbox"
+                    checked={settings.soundEnabled}
+                    onChange={(e) => updateSettings({ soundEnabled: e.target.checked })}
+                  />
+                </label>
+                <label className="setting-row">
+                  <span>Vibração da tela</span>
+                  <input
+                    type="checkbox"
+                    checked={settings.shakeEnabled}
+                    onChange={(e) => updateSettings({ shakeEnabled: e.target.checked })}
+                  />
+                </label>
+                <button
+                  type="button"
+                  className="settings-close-btn"
+                  onClick={() => setShowSettings(false)}
+                >
+                  Fechar
+                </button>
+              </div>
+            </div>
+          )}
           <div id="go" className={g.gameOver ? 'show' : ''}>
             <h2>Fim de jogo</h2>
             <div id="stats-list">
